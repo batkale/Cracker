@@ -28,23 +28,74 @@ a read-only Gmail scope; the tracker is a single HTML file.
 - **Flags what needs you** — overdue deadlines, deadlines within five days, and
   applications that have gone quiet for three weeks.
 
-## Getting started
+## Install
 
-1. **Set up the agent** — Google OAuth client, install, sign in once:
-   see [README-AGENT.md](README-AGENT.md).
-2. **Run it:**
+Windows, macOS or Linux. About fifteen minutes, most of it on Google's side.
 
-   ```bash
-   python -m agent --serve
-   ```
+### 1. Get the code
 
-   Syncs your mail, then serves the tracker at <http://127.0.0.1:8732>.
+Needs [Python 3.11+](https://www.python.org/downloads/) and Git.
 
-3. **Keep it fresh** (Windows):
+```bash
+git clone https://github.com/batkale/Cracker.git
+cd Cracker
+```
 
-   ```powershell
-   .\schedule.ps1
-   ```
+**Windows**
+
+```powershell
+py -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+```
+
+**macOS / Linux**
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+### 2. Make your own Google OAuth client
+
+Full steps in [README-AGENT.md](README-AGENT.md#1-get-a-google-oauth-client) —
+create a Cloud project, enable the Gmail API, add your own address as a test
+user, download the Desktop-app JSON as `credentials.json`.
+
+**Everyone needs their own.** The app stays in Google's *Testing* mode, which
+only admits accounts explicitly listed on the project, so you cannot hand a
+working setup to someone else. The ten minutes buys you a client nobody else
+depends on.
+
+### 3. Sign in and run
+
+```powershell
+.venv\Scripts\python -m agent --serve      # Windows
+```
+
+```bash
+.venv/bin/python -m agent --serve           # macOS / Linux
+```
+
+The first run opens a browser once. Google warns the app is unverified — that is
+expected, it is your own unpublished client. After that the tracker opens at
+<http://127.0.0.1:8732>.
+
+### 4. Keep it running
+
+**Windows** — registers a scheduled task every two hours:
+
+```powershell
+.\schedule.ps1
+```
+
+**macOS / Linux** — `crontab -e`, then add (with your own path):
+
+```cron
+0 */2 * * * cd ~/Cracker && .venv/bin/python -m agent --quiet
+```
+
+Nothing is shared between installs. Each person's mail, token and applications
+stay on their own machine.
 
 ## Importing what you already have
 

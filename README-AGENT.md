@@ -42,10 +42,16 @@ your own script reading your own inbox.
 
 ## 2. Install and authorise
 
+```powershell
+py -m venv .venv                                    # Windows
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m agent
+```
+
 ```bash
-uv venv .venv
-uv pip install --python .venv -r requirements.txt
-.venv/Scripts/python.exe -m agent
+python3 -m venv .venv                               # macOS / Linux
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m agent
 ```
 
 The first run opens a browser. Choose your account; Google warns the app is
@@ -63,8 +69,12 @@ your mail. If either leaks, revoke access at
 
 ## 3. See the results
 
+```powershell
+.venv\Scripts\python -m agent --serve      # Windows
+```
+
 ```bash
-.venv/Scripts/python.exe -m agent --serve
+.venv/bin/python -m agent --serve           # macOS / Linux
 ```
 
 Syncs, then serves the tracker at <http://127.0.0.1:8732/index.html> and opens

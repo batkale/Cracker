@@ -1,0 +1,15 @@
+# Secrets — these two together read your mail.
+credentials.json
+token.json
+
+# Generated
+data/
+.venv/
+__pycache__/
+
+# Local tooling config: absolute paths to this machine only.
+.claude/
+
+# Spreadsheets you import are your own data.
+*.xlsx
+*.xls

@@ -1,0 +1,2798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Warm paper rather than white: this gets stared at for long stretches,
+     and a neutral-cool ground reads as glare at 1am. */
+  --bg:#f6f4f0; --panel:#fffdfa; --panel-2:#f1eee8; --line:#e2ded5;
+  --text:#211f1b; --muted:#6f6a60;
+
+  /* Semantic, not decorative. --ink = alive and moving. --amber = the ball is
+     in your court. --sage = won. --graphite = settled, no action left.
+     --rust is reserved for overdue deadlines and nothing else, so red in this
+     interface always means "this one is yours to fix". */
+  --ink:#2e4fa8;      --ink-soft:#e6ebfa;
+  --amber:#8a5a00;    --amber-soft:#fbf0d9;
+  --violet:#5b3fa8;   --violet-soft:#ece6fa;
+  --sage:#2b6b45;     --sage-soft:#e2f0e7;
+  --graphite:#6f6a60; --graphite-soft:#eeebe4;
+  --rust:#a83a28;     --rust-soft:#fae9e5;
+
+  /* Back-compat aliases for existing rules */
+  --accent:var(--ink); --accent-soft:var(--ink-soft);
+  --danger:var(--rust); --danger-soft:var(--rust-soft);
+  --warn:var(--amber); --warn-soft:var(--amber-soft);
+  --ok:var(--sage); --ok-soft:var(--sage-soft);
+  /* Paired with --accent so the label stays legible when the accent flips
+     light in dark mode. White on #7ea2ff measures 2.47:1. */
+  --on-accent:#ffffff;
+
+  /* Type scale — 16px base per WCAG body-text guidance, 1.5 line-height.
+     Steps are a 1.125 minor third rounded to whole pixels. */
+  --fs-xs:12px; --fs-sm:13px; --fs-base:16px; --fs-md:15px;
+  --fs-lg:18px; --fs-xl:22px; --fs-2xl:28px;
+  --lh-tight:1.25; --lh-body:1.5;
+
+  /* 4/8px spacing rhythm */
+  --space-1:4px;  --space-2:8px;  --space-3:12px; --space-4:16px;
+  --space-5:24px; --space-6:32px; --space-8:48px; --space-10:64px;
+
+  /* Named z-index scale — arbitrary large values get unmanageable fast */
+  --z-nav:20; --z-sticky:30; --z-overlay:50;
+
+  /* Motion: 150-300ms micro-interactions, standard easing */
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --dur-fast:140ms; --dur:200ms;
+
+  /* Minimum comfortable hit area; raised to 44px on touch devices below */
+  --tap:36px;
+
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(20,20,20,.06),0 4px 16px rgba(20,20,20,.05);
+  --shadow-nav:0 -1px 0 var(--line), 0 -8px 24px rgba(20,20,20,.06);
+}
+/* Touch devices: platform minimum tap target (44pt iOS / 48dp Android). */
+@media (pointer:coarse){ :root{ --tap:44px; } }
+@media (prefers-color-scheme:dark){
+  :root{
+    /* Warm dark, not blue-black: less glare under a desk lamp, and the
+       off-white text sits at ~12:1 instead of a harsh pure-white 18:1. */
+    --bg:#1a1917; --panel:#232220; --panel-2:#2b2a27; --line:#3a3834;
+    --text:#ece8e0; --muted:#9b958a;
+
+    --ink:#8fa8ff;      --ink-soft:#242a44;
+    --amber:#e0a852;    --amber-soft:#3a2f1c;
+    --violet:#b39cf0;   --violet-soft:#2c2440;
+    --sage:#72c795;     --sage-soft:#1d3327;
+    --graphite:#8f8a80; --graphite-soft:#2f2e2a;
+    --rust:#f08a72;     --rust-soft:#3a2320;
+    --on-accent:#10131c;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+    --shadow-nav:0 -1px 0 var(--line), 0 -8px 24px rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:"Public Sans",ui-sans-serif,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--fs-base); line-height:var(--lh-body);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  /* Stop iOS Safari inflating text in landscape */
+  -webkit-text-size-adjust:100%;
+}
+/* Dates, counts and money line up only with fixed-width figures. */
+/* Elapsed days and dates are values you compare down a column, so they get
+   a mono face rather than merely tabular figures. */
+.due, .stat .n, .count, .mono, .season-n{font-family:"IBM Plex Mono",ui-monospace,monospace}
+table{font-variant-numeric:tabular-nums}
+h1,h2,.stat .n,.season-n{font-family:"Bricolage Grotesque",ui-sans-serif,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.015em}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 20px 80px}
+
+/* ---------- header ---------- */
+header.top{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)}
+header.top h1{font-size:var(--fs-xl);line-height:var(--lh-tight);letter-spacing:-.035em;font-weight:700}
+header.top .sub{color:var(--muted);font-size:var(--fs-sm)}
+.wrap{padding-bottom:var(--space-10)}
+header.top .spacer{flex:1}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);
+  min-height:var(--tap); border:1px solid var(--line); background:var(--panel);
+  border-radius:var(--radius-sm); padding:0 var(--space-3); cursor:pointer;
+  font-size:var(--fs-md); font-weight:500; white-space:nowrap;
+  transition:background var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),
+             opacity var(--dur-fast) var(--ease);
+}
+.btn:hover{border-color:var(--muted)}
+/* Press feedback via opacity, not transform: scaling shifts neighbours. */
+.btn:active{opacity:.72}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--danger);border-color:var(--line)}
+.btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+.btn.sm{min-height:var(--tap);padding:0 var(--space-3);font-size:var(--fs-sm)}
+.btn.icon{width:var(--tap);padding:0}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn svg{width:18px;height:18px;flex:none;stroke-width:1.75}
+
+/* Visible keyboard focus everywhere — never removed, only restyled. */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius-sm);
+}
+
+/* ---------- tabs ---------- */
+nav.tabs{display:flex;gap:var(--space-1);background:var(--panel-2);border:1px solid var(--line);
+  border-radius:10px;padding:var(--space-1);width:fit-content;margin-bottom:var(--space-4)}
+nav.tabs button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);
+  min-height:var(--tap);border:0;background:transparent;padding:0 var(--space-4);border-radius:var(--radius-sm);
+  cursor:pointer;color:var(--muted);font-size:var(--fs-md);font-weight:500;
+  transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+nav.tabs button[aria-selected="true"]{background:var(--panel);color:var(--text);box-shadow:var(--shadow)}
+nav.tabs button svg{width:18px;height:18px;flex:none}
+nav.tabs .tab-label{display:inline}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar input[type=search],.toolbar select{
+  min-height:var(--tap);border:1px solid var(--line);background:var(--panel);
+  border-radius:var(--radius-sm);padding:0 var(--space-3);font-size:var(--fs-md);
+}
+.toolbar input[type=search]{padding-block:0}
+.toolbar input[type=search]{min-width:220px;flex:1;max-width:340px}
+.count{color:var(--muted);font-size:var(--fs-sm);margin-left:auto}
+
+/* ---------- due banner ---------- */
+.banner{border:1px solid var(--line);background:var(--warn-soft);border-left:3px solid var(--warn);
+  border-radius:var(--radius);padding:11px 14px;margin-bottom:14px;font-size:14px;display:flex;gap:10px;align-items:flex-start}
+.banner b{color:var(--warn)}
+.banner ul{margin:6px 0 0;padding-left:18px;color:var(--text)}
+.banner .x,.needs .x{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+  width:var(--tap);height:var(--tap);flex:none;cursor:pointer;border:0;background:transparent;
+  color:var(--muted);border-radius:var(--radius-sm);transition:color var(--dur-fast) var(--ease)}
+.banner .x:hover,.needs .x:hover{color:var(--text)}
+.banner .x svg,.needs .x svg{width:18px;height:18px}
+
+/* ---------- table ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
+tbody tr{cursor:pointer}
+th{
+  text-align:left;font-weight:500;color:var(--muted);font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;
+  padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);white-space:nowrap;
+}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text)}
+th .arrow{opacity:.5;font-size:10px}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--panel-2)}
+.co{font-weight:600}
+.role{color:var(--muted);font-size:var(--fs-sm);line-height:1.4}
+td.actions{text-align:right;white-space:nowrap;opacity:0;transition:.1s}
+tr:hover td.actions{opacity:1}
+a.link{color:var(--accent);text-decoration:none}
+a.link:hover{text-decoration:underline}
+
+/* ---------- pills ---------- */
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;border:1px solid transparent}
+.s-wishlist{background:transparent;color:var(--muted);border-color:var(--line)}
+.s-applied{background:var(--ink-soft);color:var(--ink)}
+.s-oa{background:var(--amber-soft);color:var(--amber)}
+.s-interview{background:var(--violet-soft);color:var(--violet)}
+.s-offer{background:var(--sage-soft);color:var(--sage)}
+/* Settled, not failed. You will collect a lot of these over a season and the
+   app should not raise its voice every time you open it. Red is kept for
+   overdue deadlines, the one thing that is actually still yours to fix. */
+.s-rejected{background:transparent;color:var(--muted);border-color:var(--line);opacity:.75}
+tr:has(.s-rejected) .co{color:var(--muted);font-weight:400}
+.cat{font-size:12px;color:var(--muted)}
+
+/* Type sits next to the stage pill, so it stays an outline chip — the solid
+   fill is reserved for stage, which is the thing you scan for. */
+/* Stage is the one thing worth a coloured chip. Type is a quiet label, so a
+   row reads as one signal plus context instead of three competing badges. */
+.kind{display:inline-block;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;
+  letter-spacing:.02em}
+.k-other{opacity:.55}
+
+.due{white-space:nowrap;font-variant-numeric:tabular-nums}
+.due .tag{font-size:11px;margin-left:6px;padding:1px 6px;border-radius:5px;font-weight:600}
+.due.soon .tag{background:var(--warn-soft);color:var(--warn)}
+.due.over .tag{background:var(--danger-soft);color:var(--danger)}
+.due.soon{color:var(--warn);font-weight:600}
+.due.over{color:var(--danger);font-weight:600}
+
+.empty{padding:46px 20px;text-align:center;color:var(--muted)}
+.empty h3{margin-bottom:6px;color:var(--text)}
+
+/* ---------- board ---------- */
+.board{display:grid;grid-template-columns:repeat(6,minmax(190px,1fr));gap:10px;overflow-x:auto;padding-bottom:8px}
+.col{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:8px;min-height:180px;transition:.12s}
+.col.over{border-color:var(--accent);background:var(--accent-soft)}
+.col h3{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);padding:4px 4px 8px;display:flex;justify-content:space-between}
+.kcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:7px;cursor:grab;box-shadow:var(--shadow)}
+.kcard:active{cursor:grabbing}
+.kcard.dragging{opacity:.4}
+.kcard .kco{font-weight:600;font-size:13.5px}
+.kcard .krole{font-size:12px;color:var(--muted);margin-top:1px}
+/* Where a company holds several applications, the role is what tells the
+   cards apart - two bold "Optiver" headings read as a duplicate. So the role
+   takes the lead and the company becomes a label above it. */
+.kcard.by-role .kco{font-size:10.5px;font-weight:600;color:var(--muted);
+  letter-spacing:.07em;text-transform:uppercase}
+.kcard.by-role .krole{font-size:13.5px;font-weight:500;color:var(--text);
+  margin-top:2px;line-height:1.3}
+
+/* ---------- dashboard: by company ---------- */
+/* Collapsible: the longest panel on the dashboard, and the summary carries
+   enough to be worth opening rather than a mystery box. */
+.co-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;
+  gap:var(--space-3);margin:0;min-height:var(--tap);align-content:center;
+  flex-wrap:wrap;padding-block:var(--space-1)}
+.co-panel > summary::-webkit-details-marker{display:none}
+.co-panel > summary h2{margin:0}
+.co-panel > summary::after{content:"";margin-left:auto;flex:none;width:8px;height:8px;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:rotate(45deg) translate(-2px,-2px);
+  transition:transform var(--dur) var(--ease)}
+.co-panel[open] > summary::after{transform:rotate(-135deg) translate(-3px,-3px)}
+.co-panel > summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
+  border-radius:var(--radius-sm)}
+.co-sum{font-size:var(--fs-sm);color:var(--muted)}
+.co-panel[open] .co-list{margin-top:var(--space-4)}
+
+/* ---------- sankey hover ---------- */
+.sankey-link,.sankey-node{transition:opacity var(--dur-fast) var(--ease)}
+.sankey-link:hover{opacity:.45}
+.sankey-node:hover{opacity:1}
+.sankey-tip{position:fixed;z-index:var(--z-overlay);pointer-events:none;
+  max-width:300px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius-sm);box-shadow:var(--shadow);
+  padding:var(--space-2) var(--space-3);font-size:var(--fs-sm);line-height:1.45}
+.sankey-tip h4{margin:0 0 5px;font-size:var(--fs-sm);font-weight:600;
+  display:flex;gap:8px;align-items:baseline}
+.sankey-tip .n{margin-left:auto;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:var(--fs-xs);color:var(--muted)}
+.sankey-tip ul{margin:0;padding:0;list-style:none;display:grid;gap:2px}
+.sankey-tip li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sankey-tip .r{color:var(--muted)}
+
+.co-list{display:grid;gap:var(--space-3)}
+.co-row{display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr);
+  gap:var(--space-3);align-items:baseline}
+.co-name{font-weight:500;display:flex;align-items:baseline;gap:6px;min-width:0}
+.co-n{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:var(--fs-xs);
+  color:var(--muted)}
+.co-apps{display:grid;gap:var(--space-1);min-width:0}
+.co-app{display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap}
+.co-role{color:var(--text);font-size:var(--fs-sm);min-width:0}
+.co-norole{color:var(--muted);font-style:italic}
+@media(max-width:640px){
+  .co-row{grid-template-columns:1fr;gap:var(--space-1)}
+  .co-name{font-size:var(--fs-sm)}
+}
+.kcard .kmeta{margin-top:7px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px}
+
+/* ---------- dashboard ---------- */
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px}
+.stat .n{font-size:26px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat .l{font-size:12px;color:var(--muted)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+.bar .track{flex:1;height:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:99px}
+.bar .v{width:22px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar .k{width:120px;flex-shrink:0}
+.sankey-note{color:var(--muted);font-size:13px}
+svg.sankey{width:100%;height:auto;display:block}
+svg.sankey text{font:11px ui-sans-serif,-apple-system,sans-serif;fill:var(--text)}
+svg.sankey text.small{fill:var(--muted);font-size:10px}
+
+/* ---------- modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,15,18,.45);display:flex;align-items:flex-start;
+  justify-content:center;padding:40px 16px;overflow:auto;z-index:50;backdrop-filter:blur(2px)}
+.overlay[hidden]{display:none}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:620px;
+  box-shadow:0 20px 60px rgba(0,0,0,.28);overflow:hidden}
+.modal header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.modal header h2{font-size:16px}
+.modal .body{padding:18px 20px}
+.modal footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;background:var(--panel-2)}
+.modal footer .spacer{flex:1}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.field input,.field select,.field textarea{
+  border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:8px 10px;width:100%;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent;background:var(--panel)}
+.field textarea{resize:vertical;min-height:74px}
+.hint{font-size:12px;color:var(--muted)}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:var(--fs-xs);background:var(--panel-2);color:var(--text)}
+
+/* ---------- gmail sync ---------- */
+.sync-state{font-size:12px;color:var(--muted);white-space:nowrap}
+.sync-state.err{color:var(--danger)}
+.badge{display:inline-block;min-width:17px;padding:0 5px;border-radius:99px;background:var(--accent);
+  color:var(--on-accent);font-size:11px;font-weight:600;text-align:center;margin-left:5px;vertical-align:1px}
+nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
+.check{display:flex;gap:7px;align-items:center;font-size:13px;color:var(--text);font-weight:400;cursor:pointer}
+.check input{width:auto;margin:0}
+
+.sug{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:13px 15px;margin-bottom:9px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
+.sug.low{border-left:3px solid var(--warn)}
+.sug.high{border-left:3px solid var(--accent)}
+.sug.new{border-left:3px solid var(--muted)}
+.sug .main{flex:1;min-width:0}
+.sug .subj{font-weight:600;font-size:14px;margin-bottom:2px}
+.sug .meta{font-size:12px;color:var(--muted);margin-bottom:7px}
+.sug .snip{font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);
+  padding-left:9px;margin:7px 0 0;font-style:italic}
+.sug .move{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sug .acts{display:flex;gap:6px;flex-shrink:0}
+.sug .why{font-size:11.5px;color:var(--muted);margin-top:6px}
+.sug .why code{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:11px}
+.arrow-to{color:var(--muted)}
+.inbox-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.inbox-head h2{font-size:14px}
+.inbox-head .spacer{flex:1}
+
+/* ================= season bar (signature) =================
+   One continuous bar of everything still alive, left to right in pipeline
+   order, with the settled count set apart rather than stacked in. The thing a
+   student wants on opening this is "how much is still in play", and a row of
+   KPI tiles answers a different, colder question. */
+.season{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:var(--space-4);margin-bottom:var(--space-4);box-shadow:var(--shadow)}
+.season-top{display:flex;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-3)}
+.season-n{font-size:var(--fs-2xl);font-weight:700;line-height:1;letter-spacing:-.04em}
+.season-lbl{color:var(--muted);font-size:var(--fs-sm)}
+.season-settled{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
+.season-track{display:flex;gap:3px;height:10px;margin-bottom:var(--space-3)}
+.season-track span{border-radius:3px;min-width:4px;transition:flex-grow var(--dur) var(--ease)}
+.season-empty{flex:1;border:1px dashed var(--line);border-radius:3px}
+.season-key{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-4);
+  font-size:var(--fs-sm);color:var(--muted)}
+.season-key b{color:var(--text);font-weight:600;font-family:"IBM Plex Mono",ui-monospace,monospace}
+.season-key i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px}
+
+/* Companies holding several applications: the bar shows how many are live,
+   this says which roles they are. Settled ones stay listed but recede. */
+.season-multi{margin-top:var(--space-3);padding-top:var(--space-3);
+  border-top:1px solid var(--line);display:grid;gap:var(--space-2)}
+.season-co{display:grid;grid-template-columns:minmax(0,130px) minmax(0,1fr);
+  gap:var(--space-3);align-items:baseline}
+.season-co-name{font-size:var(--fs-sm);font-weight:500;display:flex;
+  align-items:baseline;gap:5px;min-width:0}
+.season-co-roles{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-4);min-width:0}
+.season-role{font-size:var(--fs-sm);color:var(--text);display:inline-flex;
+  align-items:baseline;gap:6px}
+.season-role i{width:6px;height:6px;border-radius:50%;display:inline-block;flex:none}
+.season-role.done{color:var(--muted)}
+@media(max-width:640px){
+  .season-co{grid-template-columns:1fr;gap:2px}
+  .season-co-roles{gap:2px var(--space-3)}
+}
+
+/* ================= needs you ================= */
+.needs{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent-edge,var(--amber));
+  border-radius:var(--radius);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);
+  display:flex;gap:var(--space-3);align-items:flex-start;box-shadow:var(--shadow)}
+.needs h2{font-size:var(--fs-md);font-weight:600;margin-bottom:var(--space-2)}
+.needs ul{margin:0;padding:0;list-style:none;display:grid;gap:var(--space-1)}
+.needs li{font-size:var(--fs-md);display:flex;gap:var(--space-2);align-items:baseline;flex-wrap:wrap}
+.needs .who{font-weight:500}
+.needs .why{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:var(--fs-sm)}
+.why.over{color:var(--rust)} .why.soon{color:var(--amber)} .why.quiet{color:var(--muted)}
+.needs .more{color:var(--muted);font-size:var(--fs-sm)}
+
+/* ================= mobile: app shell ================= */
+@media(max-width:640px){
+  .fields{grid-template-columns:1fr}
+  td.actions{opacity:1}
+  .hide-sm{display:none}
+
+  /* Leave room for the fixed tab bar plus the home-indicator inset, so the
+     last row is never trapped underneath it. */
+  /* Clear the tab bar (56) + FAB (56) + its offset (16) + breathing room. */
+  .wrap{padding:var(--space-4) var(--space-4)
+        calc(144px + env(safe-area-inset-bottom,0px));}
+
+  header.top{gap:var(--space-2)}
+  header.top h1{font-size:var(--fs-lg)}
+  header.top .sub{width:100%;order:3;margin-top:calc(var(--space-1) * -1)}
+
+  /* Tabs become a bottom bar: thumb-reachable, and the app's primary
+     navigation stays visible while the list scrolls. */
+  nav.tabs{
+    position:fixed; left:0; right:0; bottom:0; z-index:var(--z-nav);
+    width:auto; margin:0; border:0; border-radius:0; padding:0;
+    background:var(--panel); box-shadow:var(--shadow-nav);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  nav.tabs button{
+    flex:1; flex-direction:column; gap:2px; min-height:56px; padding:var(--space-2) 0;
+    border-radius:0; font-size:var(--fs-xs); font-weight:500;
+  }
+  nav.tabs button[aria-selected="true"]{background:transparent;color:var(--accent);box-shadow:none}
+  nav.tabs button svg{width:22px;height:22px}
+  nav.tabs .badge{position:absolute;transform:translate(14px,-10px)}
+
+  .season{padding:var(--space-3)}
+  .season-key{gap:var(--space-1) var(--space-3);font-size:var(--fs-xs)}
+  .needs{padding:var(--space-3)}
+  .toolbar{gap:var(--space-2)}
+  .toolbar input[type=search]{max-width:none;min-width:0;flex:1 1 100%}
+  .toolbar select{flex:1 1 calc(50% - var(--space-1));min-width:0}
+  .count{width:100%;margin:0;text-align:right}
+
+  /* The table becomes a stack of cards. Presentation only — the rendering
+     code, sorting and filtering are untouched. */
+  .card{border-radius:var(--radius);background:transparent;border:0;box-shadow:none;overflow:visible}
+  table,tbody,tr,td{display:block;width:100%}
+  thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  /* Explicit placement: company block on the left across both rows, stage and
+     deadline stacked on the right. Left to auto-flow, the deadline cell drops
+     onto a row of its own and the card grows a dead band. */
+  tbody tr{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3);
+    display:grid;grid-template-columns:minmax(0,1fr) auto;
+    grid-template-rows:auto auto;gap:var(--space-1) var(--space-3);align-items:start;
+    cursor:pointer;transition:background var(--dur-fast) var(--ease);
+  }
+  tbody tr:active{background:var(--panel-2)}
+  tbody td{border:0;padding:0}
+  tbody td:first-child{grid-column:1;grid-row:1 / span 2;min-width:0;align-self:center}
+  tbody td:nth-child(4){grid-column:2;grid-row:1;justify-self:end;white-space:nowrap}
+  tbody td:nth-child(5){grid-column:2;grid-row:2;justify-self:end;white-space:nowrap;
+    font-size:var(--fs-sm);color:var(--muted)}
+  /* The whole card opens the editor on mobile, so the button is redundant. */
+  tbody td.actions{display:none}
+  .co{font-size:var(--fs-base);font-weight:500}
+  .role{font-size:var(--fs-sm)}
+
+  /* Header reflows to: title + settings, then status, then secondary actions.
+     The primary action leaves the flow entirely and becomes a FAB. */
+  header.top{gap:var(--space-2);row-gap:var(--space-2)}
+  header.top .spacer{display:none}
+  header.top h1{flex:1 1 auto;order:0}
+  header.top #settingsBtn{order:1}
+  header.top .sync-state{order:2;flex:1 1 100%;font-size:var(--fs-xs)}
+  header.top .sub{order:3;flex:1 1 100%;margin:0}
+  header.top .btn{order:4;font-size:var(--fs-sm)}
+  header.top kbd{display:none}   /* no keyboard on a phone */
+
+  header.top .btn.primary{
+    position:fixed; right:var(--space-4);
+    bottom:calc(56px + var(--space-4) + env(safe-area-inset-bottom,0px));
+    z-index:var(--z-sticky);
+    width:56px; height:56px; min-height:56px; padding:0; border-radius:50%;
+    box-shadow:0 6px 20px rgba(0,0,0,.28);
+  }
+  header.top .btn.primary svg{width:24px;height:24px}
+  header.top .btn.primary .btn-label{display:none}
+}
+
+/* ================= reduced motion ================= */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important; animation-iteration-count:1 !important;
+    transition-duration:.01ms !important; scroll-behavior:auto !important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>Cracker</h1>
+    <span class="sub" id="todayLabel"></span>
+    <span class="spacer"></span>
+    <span class="sync-state" id="syncState"></span>
+    <button class="btn ghost sm" id="syncBtn" data-i18n="sync">Sync Gmail</button>
+    <button class="btn ghost sm icon" id="settingsBtn" title="Settings" aria-label="Settings" data-i18n-title="settings" data-i18n-aria="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    <button class="btn ghost sm" id="exportBtn" data-i18n="exportCsv">Export CSV</button>
+    <button class="btn ghost sm" id="importBtn" data-i18n="importCsv">Import CSV</button>
+    <input type="file" id="importFile" hidden
+           accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+    <button class="btn primary" id="addBtn" aria-label="New application" data-i18n-aria="newApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label" data-i18n="newApp">New application</span> <kbd>N</kbd></button>
+  </header>
+
+  <div id="dueBanner"></div>
+  <section id="seasonBar"></section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-view="table" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg><span class="tab-label" data-i18n="tabTable">Table</span></button>
+    <button role="tab" data-view="board" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span class="tab-label" data-i18n="tabBoard">Board</span></button>
+    <button role="tab" data-view="dash" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V10M10 19V5M16 19v-6M22 19H2"/></svg><span class="tab-label" data-i18n="tabDash">Dashboard</span></button>
+    <button role="tab" data-view="inbox" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg><span class="tab-label" data-i18n="tabInbox">Inbox</span><span class="badge" id="inboxBadge" hidden>0</span></button>
+  </nav>
+
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="Search company, role, notes…  (/)" data-i18n-ph="searchPh">
+    <select id="fCat"></select>
+    <select id="fKind"></select>
+    <select id="fStage"></select>
+    <select id="fDue">
+      <option value="" data-i18n="anyDeadline">Any deadline</option>
+      <option value="soon" data-i18n="dueSoonOpt">Due in ≤5 days</option>
+      <option value="over" data-i18n="overdueOpt">Overdue</option>
+      <option value="none" data-i18n="noDeadlineOpt">No deadline set</option>
+    </select>
+    <button class="btn ghost sm" id="clearFilters" hidden data-i18n="clear">Clear</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <section id="view-table"></section>
+  <section id="view-board" hidden></section>
+  <section id="view-dash" hidden></section>
+  <section id="view-inbox" hidden></section>
+</div>
+
+<!-- ---------- form modal ---------- -->
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <header><h2 id="mTitle">New application</h2></header>
+    <form id="form">
+      <div class="body">
+        <div class="fields">
+          <div class="field">
+            <label for="f-company" data-i18n="lblCompany">Company *</label>
+            <input id="f-company" name="company" required autocomplete="off" placeholder="Revolut">
+          </div>
+          <div class="field">
+            <label for="f-role" data-i18n="lblRole">Role / title</label>
+            <input id="f-role" name="role" autocomplete="off" placeholder="Quant Internship Programme" data-i18n-ph="phRole">
+          </div>
+          <div class="field">
+            <label for="f-category" data-i18n="lblCategory">Category</label>
+            <select id="f-category" name="category"></select>
+          </div>
+          <div class="field">
+            <label for="f-kind" data-i18n="lblType">Type</label>
+            <select id="f-kind" name="kind"></select>
+          </div>
+          <div class="field">
+            <label for="f-stage" data-i18n="lblStage">Stage</label>
+            <select id="f-stage" name="stage"></select>
+          </div>
+          <div class="field">
+            <label for="f-applied" data-i18n="lblApplied">Date applied</label>
+            <input type="date" id="f-applied" name="applied">
+          </div>
+          <div class="field">
+            <label for="f-deadline" data-i18n="lblDeadline">Deadline / next action</label>
+            <input type="date" id="f-deadline" name="deadline">
+          </div>
+          <div class="field">
+            <label for="f-source" data-i18n="lblSource">Source</label>
+            <input id="f-source" name="source" list="sources" autocomplete="off" placeholder="Direct application" data-i18n-ph="srcDirect">
+            <datalist id="sources"></datalist>
+          </div>
+          <div class="field">
+            <label for="f-link" data-i18n="lblLink">Link</label>
+            <input type="url" id="f-link" name="link" autocomplete="off" placeholder="https://…">
+          </div>
+          <div class="field full">
+            <label for="f-notes" data-i18n="lblNotes">Notes</label>
+            <textarea id="f-notes" name="notes" placeholder="Assessment format, interviewer names, impressions…" data-i18n-ph="phNotes"></textarea>
+          </div>
+        </div>
+      </div>
+      <footer>
+        <button type="button" class="btn danger" id="deleteBtn" hidden data-i18n="del">Delete</button>
+        <span class="spacer"></span>
+        <span class="hint" style="align-self:center" data-i18n="saveHint">⌘/Ctrl + Enter to save</span>
+        <button type="button" class="btn" id="cancelBtn" data-i18n="cancel">Cancel</button>
+        <button type="submit" class="btn primary" data-i18n="save">Save</button>
+      </footer>
+    </form>
+  </div>
+</div>
+
+<!-- ---------- gmail sync settings ---------- -->
+<div class="overlay" id="setOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <header><h2 id="sTitle" data-i18n="settingsTitle">Settings</h2></header>
+    <div class="body">
+      <div class="fields" style="margin-bottom:16px">
+        <div class="field full">
+          <label for="s-lang" data-i18n="lblLanguage">Language</label>
+          <select id="s-lang"></select>
+          <span class="hint" data-i18n="langHint">Changes the interface immediately. Saved data is unaffected.</span>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 14px" data-i18n-html="agentHint">
+        The local agent reads Gmail on your machine and writes <b>data/events.json</b>.
+        It only ever reads. See <b>README-AGENT.md</b>.
+      </p>
+      <div class="fields">
+        <div class="field full">
+          <label for="s-days" data-i18n="lblDays">Show the last … days</label>
+          <input id="s-days" type="number" min="1" max="3650" value="120">
+          <span class="hint" id="s-days-hint"></span>
+        </div>
+        <div class="field full">
+          <details>
+            <summary class="hint" style="cursor:pointer" data-i18n="legacySummary">Legacy Apps Script sync</summary>
+            <p class="hint" style="margin:8px 0" data-i18n-html="legacyHint">
+              Only for the older <b>GMAIL-SETUP.md</b> route. <b>Leave both blank</b> to keep
+              using the local agent — anything here redirects sync away from it.
+            </p>
+            <label for="s-url" data-i18n="lblWebUrl">Web app URL</label>
+            <input id="s-url" type="url" autocomplete="off" spellcheck="false"
+                   placeholder="https://script.google.com/macros/s/AKfy…/exec">
+            <label for="s-token" style="margin-top:8px;display:block" data-i18n="lblToken">Shared token</label>
+            <input id="s-token" type="password" autocomplete="off" spellcheck="false"
+                   placeholder="the TOKEN value from gmail-sync.gs" data-i18n-ph="phToken">
+          </details>
+        </div>
+        <div class="field">
+          <label for="s-auto" data-i18n="lblAutomation">Automation</label>
+          <label class="check"><input type="checkbox" id="s-auto">
+            <span data-i18n="autoLabel">Apply high-confidence mail straight to the table</span></label>
+          <span class="hint" style="margin:-4px 0 8px 24px" data-i18n="autoHint">Adds new applications
+            and moves existing ones forward without asking. Anything uncertain
+            still waits in the Inbox. Untick to review everything first.</span>
+          <label class="check"><input type="checkbox" id="s-onload">
+            <span data-i18n="onloadLabel">Sync automatically on page load</span></label>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button type="button" class="btn danger" id="s-forget" data-i18n="forget">Forget settings</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="s-cancel" data-i18n="cancel">Cancel</button>
+      <button type="button" class="btn primary" id="s-save" data-i18n="save">Save</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ======================= i18n =======================
+   Saved data stays canonical English. Stage, category and type values are
+   written to localStorage and to CSV exactly as the pipeline defines them,
+   and are translated only at render time — so switching language never
+   rewrites a stored row, and an export stays readable by the agent.        */
+const LANG_KEY   = "app-tracker.lang";
+const LOCALES    = { en:"en-GB", tr:"tr-TR" };
+const LANG_NAMES = { en:"English", tr:"Türkçe" };
+
+/* Display names for the canonical pipeline values. */
+const NAMES = {
+  en: { stage:{}, cat:{}, kind:{} },   // canonical already is English
+  tr: {
+    stage:{
+      "Wishlist":"İstek listesi", "Applied":"Başvuruldu",
+      "OA/Assessment":"Sınav/Değerlendirme", "Interview":"Mülakat",
+      "Offer":"Teklif", "Rejected/Withdrawn":"Reddedildi/Geri çekildi"
+    },
+    cat:{
+      "Quant/Finance":"Kantitatif/Finans", "Engineering":"Mühendislik",
+      "Data/ML":"Veri/ML", "Hardware/Mechanical":"Donanım/Makine",
+      "Research":"Araştırma", "Consulting":"Danışmanlık",
+      "Product":"Ürün", "Other":"Diğer"
+    },
+    kind:{
+      "Internship":"Staj", "Industrial Placement":"Sanayi stajı",
+      "Hackathon":"Hackathon", "Graduate Scheme":"Yeni mezun programı",
+      "Insight/Spring Week":"Tanıtım/Bahar haftası", "Other":"Diğer"
+    }
+  }
+};
+
+const I18N = {
+en:{
+  sync:"Sync Gmail", settings:"Settings", exportCsv:"Export CSV", importCsv:"Import CSV",
+  newApp:"New application",
+  tabTable:"Table", tabBoard:"Board", tabDash:"Dashboard", tabInbox:"Inbox",
+  searchPh:"Search company, role, notes…  (/)",
+  allCategories:"All categories", allTypes:"All types", allStages:"All stages",
+  anyDeadline:"Any deadline", dueSoonOpt:"Due in ≤5 days", overdueOpt:"Overdue",
+  noDeadlineOpt:"No deadline set", clear:"Clear",
+  countAll:n => `${n} application${n===1?"":"s"}`,
+  countSome:(n,total) => `${n} of ${total}`,
+
+  thCompany:"Company / role", thCategory:"Category", thType:"Type", thStage:"Stage",
+  thDeadline:"Deadline", thApplied:"Applied", thSource:"Source",
+  edit:"Edit", openPosting:"Open posting",
+  emptyNoneTitle:"No applications yet",
+  emptyNoneBody:"Add your first one — press <kbd>N</kbd> or the button above.",
+  emptyFilterTitle:"Nothing matches these filters",
+  emptyFilterBody:"Try clearing the search or filters.",
+
+  rel:d => d===0 ? "today" : d===1 ? "tomorrow" : d<0 ? `${-d}d ago` : `${d}d`,
+  overdueTag:"overdue",
+  dueIn:d => `due ${I18N.en.rel(d)}`,
+  overdueBy:n => `${n}d overdue`,
+  quietFor:n => `${n}d quiet`,
+
+  dragHint:"Drag a card to another column to change its stage.",
+
+  overview:"Overview", statTotal:"Total", statActive:"Active",
+  statDue:d => `Due ≤${d}d`, statOverdue:"Overdue", statOffers:"Offers",
+  statReached:"Reached interview",
+  byStage:"By stage", byCategory:"By category", byType:"By type",
+  byCompany:"By company", noRole:"role not stated",
+  importNoCompany:h => `No company column found.\n\nHeadings seen: ${h || "(none)"}`,
+  importPreview:(cnt, matched, ignored, dates) =>
+    `Import ${cnt} row${cnt === 1 ? "" : "s"}?\n\nColumns matched:\n  ${matched}` +
+    (ignored ? `\n\nIgnored: ${ignored}` : "") +
+    `\n\nDates read as ${dates}.`,
+  dateDmy:"day/month/year", dateMdy:"month/day/year",
+  xlsxFailed:"Could not load the Excel reader. Check your connection, or save the sheet as CSV.",
+  coSummary:(n,m) => `${n} ${n===1?"company":"companies"}` +
+    (m ? ` · ${m} with several roles` : ""),
+  flowTitle:"Category → stage flow",
+  sankeyNeed:n => `Needs 10+ applications to be meaningful — ${n} so far.`,
+  sankeyAria:"Flow from category to current stage",
+
+  needsYou:"Needs you", moreItems:n => `+${n} more`, dismiss:"Dismiss",
+  stillLive:"still live", settled:n => `${n} settled`,
+
+  newApplication:"New application", editApplication:"Edit application",
+  lblCompany:"Company *", lblRole:"Role / title", lblCategory:"Category",
+  lblType:"Type", lblStage:"Stage", lblApplied:"Date applied",
+  lblDeadline:"Deadline / next action", lblSource:"Source", lblLink:"Link",
+  lblNotes:"Notes",
+  phRole:"Quant Internship Programme",
+  phNotes:"Assessment format, interviewer names, impressions…",
+  saveHint:"⌘/Ctrl + Enter to save",
+  del:"Delete", cancel:"Cancel", save:"Save",
+  confirmDelete:name => `Delete "${name}"? This cannot be undone.`,
+
+  srcDirect:"Direct application", srcReferral:"Referral", srcFair:"Careers fair",
+  srcPortal:"University portal", srcRecruiter:"Recruiter", srcCold:"Cold email",
+
+  nothingToExport:"Nothing to export yet.",
+  csvNoRows:"no data rows found", csvNoCompany:"no rows with a company name",
+  importConfirm:(n,have) => `Import ${n} application(s)? They'll be added to your existing ${have}.`,
+  importFailed:(msg,cols) => `Import failed: ${msg}\nExpected a header row with columns: ${cols}`,
+
+  settingsTitle:"Settings",
+  lblLanguage:"Language",
+  langHint:"Changes the interface immediately. Saved data is unaffected.",
+  agentHint:"The local agent reads Gmail on your machine and writes <b>data/events.json</b>. It only ever reads. See <b>README-AGENT.md</b>.",
+  lblDays:"Show the last … days",
+  daysNever:"Sync once and this will show how far back the agent scanned.",
+  daysOver:(w,d) => `The agent has only scanned <b>${w} days</b>. To go further back, run: <code>python -m agent --days ${d}</code>`,
+  daysOk:w => `The agent has ${w} days available.`,
+  legacySummary:"Legacy Apps Script sync",
+  legacyHint:"Only for the older <b>GMAIL-SETUP.md</b> route. <b>Leave both blank</b> to keep using the local agent — anything here redirects sync away from it.",
+  lblWebUrl:"Web app URL", lblToken:"Shared token",
+  phToken:"the TOKEN value from gmail-sync.gs",
+  lblAutomation:"Automation",
+  autoLabel:"Apply high-confidence mail straight to the table",
+  autoHint:"Adds new applications and moves existing ones forward without asking. Anything uncertain still waits in the Inbox. Untick to review everything first.",
+  onloadLabel:"Sync automatically on page load",
+  forget:"Forget settings",
+  confirmForget:"Forget the sync URL, token and every reviewed-email marker?\nYour applications are not touched.",
+  confirmBadUrl:"That doesn't look like an Apps Script /exec URL. Save it anyway?",
+
+  fileTitle:"Opened as a file",
+  fileBody:"The local agent serves this page so it can read <b>data/events.json</b>. Start it with:",
+  tokenTitle:"Remote sync is missing its token",
+  tokenBody:"A web app URL is set, so the tracker expects the matching token too. Clear the URL in settings to go back to the local agent.",
+  openSettingsBtn:"Open settings",
+  updatesToReview:n => `${n} update${n===1?"":"s"} to review`,
+  lastSync:s => `last sync: ${s}`, never:"never",
+  dismissAll:"Dismiss all", syncNow:"Sync now",
+  nothingNewTitle:"Nothing new",
+  nothingNewBody:"No unreviewed Gmail updates matched your applications.",
+  confirmDismissAll:n => `Dismiss all ${n} suggestion(s)? They won't come back.`,
+  unknownSender:"unknown sender", viaATS:" · via ATS", lowConf:"low confidence",
+  matchedBy:list => `matched by ${list}`,
+  phraseWas:p => ` · phrase <code>${p}</code>`,
+  noMatch:"No matching application.",
+  createAt:name => `Create <b>${name}</b> at`,
+  apply:"Apply", create:"Create",
+
+  whyATS:x => `ATS tenant <code>${x}</code>`,
+  whyDomain:d => `sender domain <code>${d}</code>`,
+  whySender:"sender name", whySubject:"company named in the subject",
+  whyBody:"company named in the email body", whyRole:"role keyword",
+
+  syncing:"Syncing…", syncedAt:time => `Synced ${time}`,
+  nAdded:n => ` · ${n} added`, nUpdated:n => ` · ${n} updated`,
+  nToReview:n => ` · ${n} to review`,
+  syncFailed:m => `Sync failed: ${m}`,
+  pendingUpdates:n => `${n} Gmail update${n===1?"":"s"} to review`,
+  errServe:"Open the tracker with: python -m agent --serve",
+  errNoServer:"couldn't read data/events.json — is the agent's server running?",
+  errNoFile:"no data/events.json yet — run: python -m agent",
+  errStatus:s => `data/events.json returned ${s}`,
+  errToken:"the script rejected the token",
+  errUnexpected:"unexpected response",
+  errUnreachable:"couldn't reach the script URL",
+  errTimeout:'timed out — check the URL, and that the deployment is set to "Anyone"'
+},
+tr:{
+  sync:"Gmail'i eşitle", settings:"Ayarlar", exportCsv:"CSV dışa aktar",
+  importCsv:"CSV içe aktar", newApp:"Yeni başvuru",
+  tabTable:"Tablo", tabBoard:"Pano", tabDash:"Panel", tabInbox:"Gelen kutusu",
+  searchPh:"Şirket, rol, not ara…  (/)",
+  allCategories:"Tüm kategoriler", allTypes:"Tüm türler", allStages:"Tüm aşamalar",
+  anyDeadline:"Tüm son tarihler", dueSoonOpt:"≤5 gün içinde", overdueOpt:"Gecikmiş",
+  noDeadlineOpt:"Son tarihi olmayan", clear:"Temizle",
+  countAll:n => `${n} başvuru`,
+  countSome:(n,total) => `${total} içinden ${n}`,
+
+  thCompany:"Şirket / rol", thCategory:"Kategori", thType:"Tür", thStage:"Aşama",
+  thDeadline:"Son tarih", thApplied:"Başvuru", thSource:"Kaynak",
+  edit:"Düzenle", openPosting:"İlanı aç",
+  emptyNoneTitle:"Henüz başvuru yok",
+  emptyNoneBody:"İlkini ekleyin — <kbd>N</kbd> tuşuna ya da yukarıdaki düğmeye basın.",
+  emptyFilterTitle:"Bu filtrelerle eşleşen yok",
+  emptyFilterBody:"Aramayı veya filtreleri temizlemeyi deneyin.",
+
+  rel:d => d===0 ? "bugün" : d===1 ? "yarın" : d<0 ? `${-d}g önce` : `${d}g`,
+  overdueTag:"gecikmiş",
+  dueIn:d => d===0 ? "bugün" : d===1 ? "yarın" : `${d}g kaldı`,
+  overdueBy:n => `${n}g gecikti`,
+  quietFor:n => `${n}g sessiz`,
+
+  dragHint:"Aşamayı değiştirmek için kartı başka bir sütuna sürükleyin.",
+
+  overview:"Genel bakış", statTotal:"Toplam", statActive:"Aktif",
+  statDue:d => `≤${d}g kaldı`, statOverdue:"Gecikmiş", statOffers:"Teklif",
+  statReached:"Mülakata ulaşan",
+  byStage:"Aşamaya göre", byCategory:"Kategoriye göre", byType:"Türe göre",
+  byCompany:"Şirkete göre", noRole:"rol belirtilmemiş",
+  importNoCompany:h => `Şirket sütunu bulunamadı.\n\nGörülen başlıklar: ${h || "(yok)"}`,
+  importPreview:(cnt, matched, ignored, dates) =>
+    `${cnt} satır içe aktarılsın mı?\n\nEşleşen sütunlar:\n  ${matched}` +
+    (ignored ? `\n\nYok sayılan: ${ignored}` : "") +
+    `\n\nTarihler ${dates} olarak okundu.`,
+  dateDmy:"gün/ay/yıl", dateMdy:"ay/gün/yıl",
+  xlsxFailed:"Excel okuyucu yüklenemedi. Bağlantınızı kontrol edin veya sayfayı CSV olarak kaydedin.",
+  coSummary:(n,m) => `${n} şirket` + (m ? ` · ${m} tanesi çok rollü` : ""),
+  flowTitle:"Kategori → aşama akışı",
+  sankeyNeed:n => `Anlamlı olması için 10+ başvuru gerekir — şu an ${n} var.`,
+  sankeyAria:"Kategoriden mevcut aşamaya akış",
+
+  needsYou:"İlgi bekliyor", moreItems:n => `+${n} daha`, dismiss:"Kapat",
+  stillLive:"hâlâ açık", settled:n => `${n} sonuçlandı`,
+
+  newApplication:"Yeni başvuru", editApplication:"Başvuruyu düzenle",
+  lblCompany:"Şirket *", lblRole:"Rol / unvan", lblCategory:"Kategori",
+  lblType:"Tür", lblStage:"Aşama", lblApplied:"Başvuru tarihi",
+  lblDeadline:"Son tarih / sonraki adım", lblSource:"Kaynak", lblLink:"Bağlantı",
+  lblNotes:"Notlar",
+  phRole:"Kantitatif Staj Programı",
+  phNotes:"Sınav formatı, mülakatçı adları, izlenimler…",
+  saveHint:"Kaydetmek için ⌘/Ctrl + Enter",
+  del:"Sil", cancel:"İptal", save:"Kaydet",
+  confirmDelete:name => `"${name}" silinsin mi? Bu işlem geri alınamaz.`,
+
+  srcDirect:"Doğrudan başvuru", srcReferral:"Referans", srcFair:"Kariyer fuarı",
+  srcPortal:"Üniversite portalı", srcRecruiter:"İşe alım uzmanı", srcCold:"Soğuk e-posta",
+
+  nothingToExport:"Dışa aktarılacak bir şey yok.",
+  csvNoRows:"veri satırı bulunamadı", csvNoCompany:"şirket adı olan satır yok",
+  importConfirm:(n,have) => `${n} başvuru içe aktarılsın mı? Mevcut ${have} kaydın yanına eklenecek.`,
+  importFailed:(msg,cols) => `İçe aktarma başarısız: ${msg}\nBeklenen başlık sütunları: ${cols}`,
+
+  settingsTitle:"Ayarlar",
+  lblLanguage:"Dil",
+  langHint:"Arayüzü anında değiştirir. Kayıtlı veriler etkilenmez.",
+  agentHint:"Yerel aracı, Gmail'i bilgisayarınızda okur ve <b>data/events.json</b> dosyasına yazar. Yalnızca okur. Bkz. <b>README-AGENT.md</b>.",
+  lblDays:"Son … günü göster",
+  daysNever:"Bir kez eşitleyin; aracının ne kadar geriye gittiği burada görünecek.",
+  daysOver:(w,d) => `Aracı yalnızca <b>${w} gün</b> taradı. Daha geriye gitmek için: <code>python -m agent --days ${d}</code>`,
+  daysOk:w => `Aracıda ${w} günlük veri var.`,
+  legacySummary:"Eski Apps Script eşitlemesi",
+  legacyHint:"Yalnızca eski <b>GMAIL-SETUP.md</b> yöntemi için. Yerel aracıyı kullanmaya devam etmek için <b>ikisini de boş bırakın</b> — buraya yazılan her şey eşitlemeyi aracıdan uzaklaştırır.",
+  lblWebUrl:"Web uygulaması URL'si", lblToken:"Paylaşılan anahtar",
+  phToken:"gmail-sync.gs içindeki TOKEN değeri",
+  lblAutomation:"Otomasyon",
+  autoLabel:"Yüksek güvenli e-postaları doğrudan tabloya uygula",
+  autoHint:"Yeni başvuruları sormadan ekler ve mevcut olanları ilerletir. Belirsiz olanlar yine Gelen kutusunda bekler. Her şeyi önce incelemek için işareti kaldırın.",
+  onloadLabel:"Sayfa açılınca otomatik eşitle",
+  forget:"Ayarları unut",
+  confirmForget:"Eşitleme URL'si, anahtar ve incelenmiş e-posta işaretleri unutulsun mu?\nBaşvurularınıza dokunulmaz.",
+  confirmBadUrl:"Bu bir Apps Script /exec adresine benzemiyor. Yine de kaydedilsin mi?",
+
+  fileTitle:"Dosya olarak açıldı",
+  fileBody:"Bu sayfanın <b>data/events.json</b> dosyasını okuyabilmesi için yerel aracı onu sunar. Şununla başlatın:",
+  tokenTitle:"Uzak eşitlemenin anahtarı eksik",
+  tokenBody:"Bir web uygulaması URL'si ayarlı, bu yüzden eşleşen anahtar da gerekiyor. Yerel aracıya dönmek için ayarlardaki URL'yi silin.",
+  openSettingsBtn:"Ayarları aç",
+  updatesToReview:n => `İncelenecek ${n} güncelleme`,
+  lastSync:s => `son eşitleme: ${s}`, never:"hiç",
+  dismissAll:"Tümünü kapat", syncNow:"Şimdi eşitle",
+  nothingNewTitle:"Yeni bir şey yok",
+  nothingNewBody:"Başvurularınızla eşleşen incelenmemiş Gmail güncellemesi yok.",
+  confirmDismissAll:n => `${n} önerinin tümü kapatılsın mı? Geri gelmezler.`,
+  unknownSender:"bilinmeyen gönderen", viaATS:" · ATS üzerinden", lowConf:"düşük güven",
+  matchedBy:list => `eşleşme: ${list}`,
+  phraseWas:p => ` · ifade <code>${p}</code>`,
+  noMatch:"Eşleşen başvuru yok.",
+  createAt:name => `<b>${name}</b> şu aşamada oluşturulsun:`,
+  apply:"Uygula", create:"Oluştur",
+
+  whyATS:x => `ATS kiracısı <code>${x}</code>`,
+  whyDomain:d => `gönderen alan adı <code>${d}</code>`,
+  whySender:"gönderen adı", whySubject:"konuda geçen şirket adı",
+  whyBody:"e-posta metninde geçen şirket adı", whyRole:"rol anahtar kelimesi",
+
+  syncing:"Eşitleniyor…", syncedAt:time => `${time} eşitlendi`,
+  nAdded:n => ` · ${n} eklendi`, nUpdated:n => ` · ${n} güncellendi`,
+  nToReview:n => ` · ${n} incelenecek`,
+  syncFailed:m => `Eşitleme başarısız: ${m}`,
+  pendingUpdates:n => `İncelenecek ${n} Gmail güncellemesi`,
+  errServe:"İzleyiciyi şununla açın: python -m agent --serve",
+  errNoServer:"data/events.json okunamadı — aracının sunucusu çalışıyor mu?",
+  errNoFile:"henüz data/events.json yok — çalıştırın: python -m agent",
+  errStatus:s => `data/events.json ${s} döndürdü`,
+  errToken:"betik anahtarı reddetti",
+  errUnexpected:"beklenmeyen yanıt",
+  errUnreachable:"betik adresine ulaşılamadı",
+  errTimeout:'zaman aşımı — adresi ve dağıtımın "Anyone" olarak ayarlandığını doğrulayın'
+}
+};
+
+let lang = (() => {
+  try{ const v = localStorage.getItem(LANG_KEY); return I18N[v] ? v : "en"; }
+  catch(e){ return "en"; }
+})();
+
+function t(k, ...args){
+  const dict = I18N[lang] || I18N.en;
+  const v = (k in dict) ? dict[k] : I18N.en[k];
+  if(v === undefined) return k;
+  return typeof v === "function" ? v(...args) : v;
+}
+const locale = () => LOCALES[lang] || "en-GB";
+function tName(group, v){
+  const m = NAMES[lang] && NAMES[lang][group];
+  return (m && m[v]) || v;
+}
+const tStage = v => tName("stage", v);
+const tCat   = v => tName("cat", v);
+const tKind  = v => tName("kind", v);
+
+
+/* ======================= constants & storage ======================= */
+const KEY = "app-tracker.v1";
+const STAGES = ["Wishlist","Applied","OA/Assessment","Interview","Offer","Rejected/Withdrawn"];
+// Ordered roughly by how specific they are; the agent's CATEGORY_RULES match
+// in the same order, so "Data Scientist" lands in Data/ML rather than being
+// caught by "scientist" in Research.
+const CATEGORIES = ["Quant/Finance","Engineering","Data/ML","Hardware/Mechanical",
+                    "Research","Consulting","Product","Other"];
+// What kind of thing this is, as opposed to which field it is in. An Optiver
+// internship is Engineering *and* an Internship; folding the two axes into one
+// list would force a choice and lose half the information.
+const KINDS = ["Internship","Industrial Placement","Hackathon",
+               "Graduate Scheme","Insight/Spring Week","Other"];
+const KIND_CLASS = {
+  "Internship":"k-intern","Industrial Placement":"k-placement",
+  "Hackathon":"k-hack","Graduate Scheme":"k-grad",
+  "Insight/Spring Week":"k-insight","Other":"k-other"
+};
+const STAGE_CLASS = {
+  "Wishlist":"s-wishlist","Applied":"s-applied","OA/Assessment":"s-oa",
+  "Interview":"s-interview","Offer":"s-offer","Rejected/Withdrawn":"s-rejected"
+};
+const SOON_DAYS = 5;
+// Past three weeks without a word, an application has gone quiet. Naming it
+// is the difference between "waiting" and "decide whether to chase".
+const QUIET_DAYS = 21;
+const CLOSED = new Set(["Offer","Rejected/Withdrawn"]);
+
+let apps = load();
+let view = "table";
+let sort = { key:"deadline", dir:1 };
+let editingId = null;
+let bannerDismissed = false;
+const CO_OPEN_KEY = "app-tracker.coOpen";
+let coOpen = readJSON(CO_OPEN_KEY, false);   // By company panel, collapsed by default
+
+function load(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(KEY) || "[]");
+    return Array.isArray(raw) ? raw.map(normalize) : [];
+  }catch(e){ console.warn("Could not read saved data:", e); return []; }
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(apps)); }
+  catch(e){ alert("Could not save to local storage: " + e.message); }
+}
+function normalize(a){
+  return {
+    id: a.id || uid(),
+    company: a.company || "",
+    role: a.role || "",
+    category: CATEGORIES.includes(a.category) ? a.category : "Other",
+    kind: KINDS.includes(a.kind) ? a.kind : "Other",
+    stage: STAGES.includes(a.stage) ? a.stage : "Wishlist",
+    applied: a.applied || "",
+    deadline: a.deadline || "",
+    source: a.source || "",
+    notes: a.notes || "",
+    link: a.link || "",
+    updated: a.updated || Date.now()
+  };
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* ======================= dates ======================= */
+function todayISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+/** Whole days from today to an ISO date. Negative = past. null if unset/invalid. */
+function daysUntil(iso){
+  if(!iso) return null;
+  const p = iso.split("-").map(Number);
+  if(p.length !== 3 || p.some(isNaN)) return null;
+  const t = new Date(p[0], p[1]-1, p[2]);
+  const n = new Date(); n.setHours(0,0,0,0);
+  return Math.round((t - n) / 86400000);
+}
+function fmtDate(iso){
+  if(!iso) return "";
+  const p = iso.split("-").map(Number);
+  if(p.length !== 3 || p.some(isNaN)) return iso;
+  return new Date(p[0], p[1]-1, p[2])
+    .toLocaleDateString(locale(),{day:"numeric",month:"short",year:"numeric"});
+}
+const relLabel = d => t("rel", d);
+/** Deadline urgency, ignoring applications that are already finished. */
+function urgency(a){
+  if(CLOSED.has(a.stage)) return "";
+  const d = daysUntil(a.deadline);
+  if(d === null) return "";
+  if(d < 0) return "over";
+  if(d <= SOON_DAYS) return "soon";
+  return "";
+}
+
+/* ======================= helpers ======================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const byId = id => apps.find(a => a.id === id);
+
+function safeHref(url){
+  const u = String(url || "").trim();
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+
+/* ======================= filtering & sorting ======================= */
+function filtered(){
+  const q = $("#q").value.trim().toLowerCase();
+  const cat = $("#fCat").value, stage = $("#fStage").value, due = $("#fDue").value;
+  const kind = $("#fKind").value;
+
+  let out = apps.filter(a => {
+    if(cat && a.category !== cat) return false;
+    if(kind && a.kind !== kind) return false;
+    if(stage && a.stage !== stage) return false;
+    if(due === "soon" && urgency(a) !== "soon") return false;
+    if(due === "over" && urgency(a) !== "over") return false;
+    if(due === "none" && a.deadline) return false;
+    if(q){
+      const hay = `${a.company} ${a.role} ${a.notes} ${a.source} ${a.category} ${a.kind}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const dir = sort.dir;
+  const cmp = (x,y) => {
+    switch(sort.key){
+      case "company":  return dir * x.company.localeCompare(y.company, locale());
+      case "stage":    return dir * (STAGES.indexOf(x.stage) - STAGES.indexOf(y.stage))
+                              || x.company.localeCompare(y.company);
+      case "category": return dir * tCat(x.category).localeCompare(tCat(y.category), locale())
+                              || x.company.localeCompare(y.company, locale());
+      // Ordered by the KINDS list, not alphabetically, so the grouping reads
+      // the same way the filter dropdown does.
+      case "kind":     return dir * (KINDS.indexOf(x.kind) - KINDS.indexOf(y.kind))
+                              || x.company.localeCompare(y.company);
+      case "applied":  return dir * cmpDate(x.applied, y.applied);
+      default:         return dir * cmpDate(x.deadline, y.deadline); // blanks last
+    }
+  };
+  return groupByCompany(out, cmp);
+}
+/**
+ * Sort rows, but never separate one company's roles.
+ *
+ * Splitting a company into an application per role makes three Optiver rows,
+ * and sorting by deadline would scatter them across the table. So each
+ * company is sorted internally, then the companies are ordered by whichever
+ * of their rows the sort puts first - the group lands where its strongest row
+ * would have landed, and stays together.
+ */
+function groupByCompany(rows, cmp){
+  const groups = new Map();
+  for(const a of rows){
+    const key = compact(a.company) || a.company || "";
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a);
+  }
+  for(const g of groups.values()) g.sort(cmp);
+  return [...groups.values()].sort((g1,g2) => cmp(g1[0], g2[0])).flat();
+}
+
+function cmpDate(a,b){
+  if(!a && !b) return 0;
+  if(!a) return 1;      // empty always sinks, regardless of direction
+  if(!b) return -1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/* ======================= render: table ======================= */
+function renderTable(rows){
+  const el = $("#view-table");
+  if(!apps.length){
+    el.innerHTML = `<div class="card"><div class="empty">
+      <h3>${esc(t("emptyNoneTitle"))}</h3>
+      <p>${t("emptyNoneBody")}</p>
+    </div></div>`;
+    return;
+  }
+  if(!rows.length){
+    el.innerHTML = `<div class="card"><div class="empty">
+      <h3>${esc(t("emptyFilterTitle"))}</h3><p>${esc(t("emptyFilterBody"))}</p>
+    </div></div>`;
+    return;
+  }
+  const th = (key,label,cls="") =>
+    `<th class="sortable ${cls}" data-sort="${key}">${label} <span class="arrow">${
+      sort.key===key ? (sort.dir===1?"▲":"▼") : ""}</span></th>`;
+
+  el.innerHTML = `<div class="card"><table>
+    <thead><tr>
+      ${th("company",esc(t("thCompany")))}
+      ${th("category",esc(t("thCategory")),"hide-sm")}
+      ${th("kind",esc(t("thType")),"hide-sm")}
+      ${th("stage",esc(t("thStage")))}
+      ${th("deadline",esc(t("thDeadline")))}
+      ${th("applied",esc(t("thApplied")),"hide-sm")}
+      <th class="hide-sm">${esc(t("thSource"))}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows.map(rowHTML).join("")}</tbody>
+  </table></div>`;
+}
+
+function rowHTML(a){
+  const u = urgency(a);
+  const d = daysUntil(a.deadline);
+  const href = safeHref(a.link);
+  const dueCell = a.deadline
+    ? `<span class="due ${u}">${fmtDate(a.deadline)}${
+        u ? `<span class="tag">${esc(u==="over"?t("overdueTag"):relLabel(d))}</span>` : ""}</span>`
+    : `<span style="color:var(--muted)">—</span>`;
+
+  return `<tr data-id="${a.id}">
+    <td>
+      <div class="co">${esc(a.company)}${
+        href ? ` <a class="link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(t("openPosting"))}">↗</a>` : ""}</div>
+      <div class="role">${esc(a.role) || "&nbsp;"}${
+        ""}</div>
+    </td>
+    <td class="hide-sm"><span class="cat">${esc(tCat(a.category))}</span></td>
+    <td class="hide-sm"><span class="kind ${KIND_CLASS[a.kind] || "k-other"}">${esc(tKind(a.kind))}</span></td>
+    <td><span class="pill ${STAGE_CLASS[a.stage]}">${esc(tStage(a.stage))}</span></td>
+    <td>${dueCell}</td>
+    <td class="hide-sm" style="color:var(--muted)">${a.applied ? fmtDate(a.applied) : "—"}</td>
+    <td class="hide-sm" style="color:var(--muted)">${esc(a.source) || "—"}</td>
+    <td class="actions"><button class="btn sm" data-edit="${a.id}">${esc(t("edit"))}</button></td>
+  </tr>`;
+}
+
+/* ======================= render: board ======================= */
+function renderBoard(rows){
+  const el = $("#view-board");
+
+  // Counted over every application, not the filtered rows, so a card does not
+  // change shape just because a filter hid its sibling.
+  const perCompany = new Map();
+  for(const a of apps){
+    const k = compact(a.company);
+    if(k) perCompany.set(k, (perCompany.get(k) || 0) + 1);
+  }
+  const splitByRole = a => (perCompany.get(compact(a.company)) || 0) > 1 && !!a.role;
+
+  el.innerHTML = `<div class="board">${STAGES.map(s => {
+    const list = rows.filter(a => a.stage === s);
+    return `<div class="col" data-stage="${esc(s)}">
+      <h3><span>${esc(tStage(s))}</span><span>${list.length}</span></h3>
+      ${list.map(a => kcardHTML(a, splitByRole(a))).join("")
+        || `<div style="color:var(--muted);font-size:12px;padding:6px 4px">—</div>`}
+    </div>`;
+  }).join("")}</div>
+  <p class="hint" style="margin-top:10px">${esc(t("dragHint"))}</p>`;
+  wireDnD();
+}
+function kcardHTML(a, byRole){
+  const u = urgency(a), d = daysUntil(a.deadline);
+  return `<div class="kcard${byRole ? " by-role" : ""}" draggable="true" data-id="${a.id}">
+    <div class="kco">${esc(a.company)}</div>
+    <div class="krole">${esc(a.role)||"&nbsp;"}</div>
+    <div class="kmeta">
+      <span class="cat">${esc(tCat(a.category))}</span>
+      <span class="kind ${KIND_CLASS[a.kind] || "k-other"}">${esc(tKind(a.kind))}</span>
+      ${a.deadline ? `<span class="due ${u}">${fmtDate(a.deadline)}${
+        u?`<span class="tag">${esc(u==="over"?t("overdueTag"):relLabel(d))}</span>`:""}</span>` : ""}
+    </div>
+  </div>`;
+}
+function wireDnD(){
+  let dragId = null;
+  document.querySelectorAll(".kcard").forEach(c => {
+    c.addEventListener("dragstart", e => {
+      dragId = c.dataset.id;
+      c.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", dragId);
+    });
+    c.addEventListener("dragend", () => c.classList.remove("dragging"));
+  });
+  document.querySelectorAll(".col").forEach(col => {
+    col.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("over"); });
+    col.addEventListener("dragleave", () => col.classList.remove("over"));
+    col.addEventListener("drop", e => {
+      e.preventDefault();
+      col.classList.remove("over");
+      const id = dragId || e.dataTransfer.getData("text/plain");
+      const a = byId(id);
+      if(a && a.stage !== col.dataset.stage){
+        a.stage = col.dataset.stage;
+        a.updated = Date.now();
+        save(); render();
+      }
+    });
+  });
+}
+
+/* ======================= render: dashboard ======================= */
+function renderDash(rows){
+  const el = $("#view-dash");
+  const total = rows.length;
+  const active = rows.filter(a => !CLOSED.has(a.stage)).length;
+  const offers = rows.filter(a => a.stage === "Offer").length;
+  const soon = rows.filter(a => urgency(a) === "soon").length;
+  const over = rows.filter(a => urgency(a) === "over").length;
+  const interviewed = rows.filter(a =>
+    ["Interview","Offer"].includes(a.stage)).length;
+  const submitted = rows.filter(a => a.stage !== "Wishlist").length;
+  const rate = submitted ? Math.round(100 * interviewed / submitted) : 0;
+
+  /* hideZero drops unused rows. Category and Type are open taxonomies - a
+     list of eight with five at zero is mostly things you have never applied
+     to. Stage keeps its zeros: the pipeline is a fixed sequence, so an empty
+     Offer row is a real reading of where you are, not clutter. */
+  const barList = (labels, counts, hideZero) => {
+    const pairs = labels.map((l,i) => [l, counts[i]])
+                        .filter(([, n]) => !hideZero || n > 0);
+    if(!pairs.length) return `<p class="sankey-note">${esc(t("emptyNoneTitle"))}</p>`;
+    const max = Math.max(1, ...pairs.map(([, n]) => n));
+    return pairs.map(([l, n]) => `<div class="bar">
+      <span class="k">${esc(l)}</span>
+      <span class="track"><span class="fill" style="width:${100*n/max}%"></span></span>
+      <span class="v">${n}</span>
+    </div>`).join("");
+  };
+  // Summary stays informative while collapsed, so the panel is worth opening
+  // rather than a mystery box.
+  const coGroups = new Map();
+  for(const a of rows){
+    const k = compact(a.company) || a.company || "";
+    coGroups.set(k, (coGroups.get(k) || 0) + 1);
+  }
+  const coCount = coGroups.size;
+  const coMulti = [...coGroups.values()].filter(n => n > 1).length;
+
+  const stageCounts = STAGES.map(s => rows.filter(a => a.stage === s).length);
+  const catCounts = CATEGORIES.map(c => rows.filter(a => a.category === c).length);
+  const kindCounts = KINDS.map(k => rows.filter(a => a.kind === k).length);
+
+  el.innerHTML = `
+    <div class="panel" style="margin-bottom:14px">
+      <h2>${esc(t("overview"))}</h2>
+      <div class="stats">
+        <div class="stat"><div class="n">${total}</div><div class="l">${esc(t("statTotal"))}</div></div>
+        <div class="stat"><div class="n">${active}</div><div class="l">${esc(t("statActive"))}</div></div>
+        <div class="stat"><div class="n" style="color:var(--warn)">${soon}</div><div class="l">${esc(t("statDue", SOON_DAYS))}</div></div>
+        <div class="stat"><div class="n" style="color:var(--danger)">${over}</div><div class="l">${esc(t("statOverdue"))}</div></div>
+        <div class="stat"><div class="n" style="color:var(--ok)">${offers}</div><div class="l">${esc(t("statOffers"))}</div></div>
+        <div class="stat"><div class="n">${rate}%</div><div class="l">${esc(t("statReached"))}</div></div>
+      </div>
+    </div>
+    <div class="grid" style="margin-bottom:14px">
+      <div class="panel"><h2>${esc(t("byStage"))}</h2>${barList(STAGES.map(tStage), stageCounts)}</div>
+      <div class="panel"><h2>${esc(t("byCategory"))}</h2>${barList(CATEGORIES.map(tCat), catCounts, true)}</div>
+      <div class="panel"><h2>${esc(t("byType"))}</h2>${barList(KINDS.map(tKind), kindCounts, true)}</div>
+    </div>
+    <details class="panel co-panel" style="margin-bottom:14px"${coOpen ? " open" : ""}>
+      <summary>
+        <h2>${esc(t("byCompany"))}</h2>
+        <span class="co-sum">${esc(t("coSummary", coCount, coMulti))}</span>
+      </summary>
+      ${byCompanyHTML(rows)}
+    </details>
+    <div class="panel">
+      <h2>${esc(t("flowTitle"))}</h2>
+      ${rows.length >= 10 ? sankeySVG(rows)
+        : `<p class="sankey-note">${esc(t("sankeyNeed", rows.length))}</p>`}
+    </div>`;
+
+  // Remember whether it was left open; renderDash rebuilds the whole panel on
+  // every sync and filter change, which would otherwise snap it shut.
+  const details = el.querySelector(".co-panel");
+  if(details) details.addEventListener("toggle", () => {
+    coOpen = details.open;
+    writeJSON(CO_OPEN_KEY, coOpen);
+  });
+
+  fitSankey(el);
+  wireSankey(el, rows);
+}
+
+/**
+ * Hover detail for the flow diagram.
+ *
+ * The shapes previously carried SVG <title>, which the browser renders as a
+ * slow native tooltip and which assistive tech ignores anyway - the <svg> is
+ * role="img" with its own label, so child titles never reach the a11y tree.
+ * Replacing them costs nothing and lets the tooltip name the applications a
+ * band is actually made of, which is the question the diagram provokes.
+ */
+function wireSankey(el, rows){
+  const svg = el.querySelector("svg.sankey");
+  if(!svg) return;
+
+  const tip = document.createElement("div");
+  tip.className = "sankey-tip";
+  tip.hidden = true;
+  el.appendChild(tip);
+
+  const MAX = 8;
+  const describe = shape => {
+    const cat = shape.dataset.cat, stage = shape.dataset.stage;
+    const items = rows.filter(a => (!cat || a.category === cat)
+                                && (!stage || a.stage === stage));
+    const heading = [cat && tCat(cat), stage && tStage(stage)]
+      .filter(Boolean).join(" → ");
+    return `<h4>${esc(heading)}<span class="n">${items.length}</span></h4>
+      <ul>${items.slice(0, MAX).map(a => `<li>${esc(a.company)}${
+        a.role ? ` <span class="r">${esc(a.role)}</span>` : ""}</li>`).join("")}</ul>
+      ${items.length > MAX ? `<p class="r" style="margin:4px 0 0">+${items.length - MAX}</p>` : ""}`;
+  };
+
+  const place = e => {
+    // Flip before the pointer rather than after it near the right or bottom
+    // edge, so the tooltip is never clipped by the viewport.
+    const box = tip.getBoundingClientRect();
+    const x = e.clientX + 14 + box.width > innerWidth ? e.clientX - box.width - 14
+                                                      : e.clientX + 14;
+    const y = e.clientY + 14 + box.height > innerHeight ? e.clientY - box.height - 14
+                                                        : e.clientY + 14;
+    tip.style.left = Math.max(8, x) + "px";
+    tip.style.top  = Math.max(8, y) + "px";
+  };
+
+  svg.addEventListener("mouseover", e => {
+    const shape = e.target.closest(".sankey-link, .sankey-node");
+    if(!shape) return;
+    tip.innerHTML = describe(shape);
+    tip.hidden = false;
+    place(e);
+  });
+  svg.addEventListener("mousemove", e => { if(!tip.hidden) place(e); });
+  svg.addEventListener("mouseleave", () => { tip.hidden = true; });
+}
+
+/**
+ * Applications grouped by company, with each role listed separately.
+ *
+ * Every other panel counts applications in aggregate, so a company holding two
+ * of them is invisible - and in the table its rows can sit far apart. This is
+ * the one place that says "Optiver: two roles, both at assessment" outright.
+ * Companies with the most applications come first, since they are the reason
+ * the panel exists.
+ */
+function byCompanyHTML(rows){
+  const groups = new Map();
+  for(const a of rows){
+    const key = compact(a.company) || a.company || "";
+    if(!groups.has(key)) groups.set(key, { name: a.company, items: [] });
+    groups.get(key).items.push(a);
+  }
+  if(!groups.size) return `<p class="sankey-note">${esc(t("emptyNoneTitle"))}</p>`;
+
+  const list = [...groups.values()].sort((x, y) =>
+    y.items.length - x.items.length || x.name.localeCompare(y.name, locale()));
+
+  return `<div class="co-list">${list.map(g => `
+    <div class="co-row">
+      <div class="co-name">${esc(g.name)}${
+        g.items.length > 1 ? `<span class="co-n">${g.items.length}</span>` : ""}</div>
+      <div class="co-apps">${g.items.slice()
+        .sort((a,b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage))
+        .map(a => `<div class="co-app">
+          <span class="co-role${a.role ? "" : " co-norole"}">${
+            a.role ? esc(a.role) : esc(t("noRole"))}</span>
+          <span class="pill ${STAGE_CLASS[a.stage]}">${esc(tStage(a.stage))}</span>
+        </div>`).join("")}</div>
+    </div>`).join("")}</div>`;
+}
+
+/* Two-layer Sankey: category (left) → stage (right). */
+function sankeySVG(rows){
+  const H = 360, PAD = 14, NODE_W = 12, GAP = 8, FLOW_W = 420;
+  const cats = CATEGORIES.filter(c => rows.some(a => a.category === c));
+  const stages = STAGES.filter(s => rows.some(a => a.stage === s));
+  const total = rows.length;
+
+  const countOf = (keys, get) => {
+    const m = {};
+    keys.forEach(k => { m[k] = rows.filter(a => get(a) === k).length; });
+    return m;
+  };
+  const catN = countOf(cats,   a => a.category);
+  const stgN = countOf(stages, a => a.stage);
+
+  // How much room the edge labels need depends on the data and the language:
+  // "Rejected/Withdrawn 2" — and more so "Reddedildi/Geri çekildi 2" — is far
+  // wider than the fixed gutter this used to assume, so the text ran off the
+  // canvas and the count was cut in half. Estimate the gutters here to lay the
+  // diagram out, then fitSankey() measures the text as actually rendered and
+  // corrects the viewBox, which is what guarantees nothing clips.
+  const gutter = labels =>
+    Math.ceil(Math.max(0, ...labels.map(s => s.length)) * 6.2) + 14;
+  const leftGut  = gutter(cats.map(c   => `${tCat(c)} ${catN[c]}`));
+  const rightGut = gutter(stages.map(s => `${tStage(s)} ${stgN[s]}`));
+  const W = leftGut + NODE_W + FLOW_W + NODE_W + rightGut;
+
+  const scale = side => (H - 2*PAD - GAP*(side.length-1)) / total;
+  const sc = Math.min(scale(cats), scale(stages));
+
+  const place = (keys, counts, x) => {
+    let y = PAD, out = {};
+    keys.forEach(k => {
+      const n = counts[k];
+      const h = Math.max(2, n * sc);
+      out[k] = { x, y, h, n, cursor: y };
+      y += h + GAP;
+    });
+    return out;
+  };
+  const L = place(cats,   catN, leftGut);
+  const R = place(stages, stgN, leftGut + NODE_W + FLOW_W);
+
+  const COLORS = {
+    "Wishlist":"#9a978f","Applied":"#2f5fd8","OA/Assessment":"#a86400",
+    "Interview":"#6b3fb5","Offer":"#1f7a4d","Rejected/Withdrawn":"#c0392b"
+  };
+
+  let links = "";
+  cats.forEach(c => stages.forEach(s => {
+    const n = rows.filter(a => a.category === c && a.stage === s).length;
+    if(!n) return;
+    const h = n * sc;
+    const a = L[c], b = R[s];
+    const x0 = a.x + NODE_W, x1 = b.x, xm = (x0 + x1) / 2;
+    const y0 = a.cursor, y1 = b.cursor;
+    a.cursor += h; b.cursor += h;
+    links += `<path d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1}
+      L${x1},${y1+h} C${xm},${y1+h} ${xm},${y0+h} ${x0},${y0+h} Z"
+      fill="${COLORS[s]}" opacity=".22" class="sankey-link"
+      data-cat="${esc(c)}" data-stage="${esc(s)}"></path>`;
+  }));
+
+  const node = (k, o, right) => `
+    <rect x="${o.x}" y="${o.y}" width="${NODE_W}" height="${o.h}" rx="3"
+      fill="${right ? COLORS[k] : "var(--muted)"}" opacity=".85" class="sankey-node"
+      ${right ? `data-stage="${esc(k)}"` : `data-cat="${esc(k)}"`}></rect>
+    <text x="${right ? o.x + NODE_W + 7 : o.x - 7}" y="${o.y + o.h/2}"
+      text-anchor="${right ? "start" : "end"}" dominant-baseline="middle">${esc(right ? tStage(k) : tCat(k))}
+      <tspan class="small"> ${o.n}</tspan></text>`;
+
+  return `<svg class="sankey" viewBox="0 0 ${W} ${H}" data-h="${H}" role="img"
+    aria-label="${esc(t("sankeyAria"))}">
+    ${links}
+    ${cats.map(c => node(c, L[c], false)).join("")}
+    ${stages.map(s => node(s, R[s], true)).join("")}
+  </svg>`;
+}
+
+/**
+ * Widens the viewBox to whatever the text actually occupies.
+ *
+ * Character-count estimates cannot know the real font metrics, so rather than
+ * trusting them, this measures every label once it is in the document and
+ * grows the box to contain them. Runs only while the dashboard is visible,
+ * which is the only time renderDash is called — getBBox needs a rendered
+ * element to measure.
+ */
+function fitSankey(el){
+  const svg = el.querySelector("svg.sankey");
+  if(!svg) return;
+  const h = Number(svg.dataset.h) || 360;
+  let minX = 0, maxX = 0;
+  try{
+    svg.querySelectorAll("text").forEach(node => {
+      const b = node.getBBox();
+      minX = Math.min(minX, b.x);
+      maxX = Math.max(maxX, b.x + b.width);
+    });
+  }catch(e){ return; }        // not rendered yet; the estimate stands
+  if(!(maxX > minX)) return;
+  const pad = 4;
+  svg.setAttribute("viewBox",
+    `${minX - pad} 0 ${(maxX - minX) + 2*pad} ${h}`);
+}
+
+/* ======================= due-soon banner ======================= */
+/* Last dated line the Gmail sync appended, else the date you applied. */
+function lastActivity(a){
+  const marks = String(a.notes || "").match(/\[(\d{4}-\d{2}-\d{2})\]/g);
+  return marks ? marks[marks.length - 1].slice(1, 11) : (a.applied || "");
+}
+function daysQuiet(a){
+  if(CLOSED.has(a.stage)) return null;
+  const d = lastActivity(a);
+  if(!d) return null;
+  return Math.floor((Date.now() - new Date(d + "T00:00:00").getTime()) / 86400000);
+}
+
+function renderBanner(){
+  const el = $("#dueBanner");
+  if(bannerDismissed){ el.innerHTML = ""; return; }
+
+  // Three ways an application can want something from you, in the order a
+  // deadline actually bites. Silence is the one nobody tracks and the one that
+  // decides whether chasing is still worth it.
+  const seen = new Set();
+  const items = [];
+  for(const a of apps.filter(a => urgency(a) === "over")) { items.push({a, kind:"over"}); seen.add(a.id); }
+  for(const a of apps.filter(a => urgency(a) === "soon")) { if(!seen.has(a.id)){ items.push({a, kind:"soon"}); seen.add(a.id); } }
+  for(const a of apps){
+    const q = daysQuiet(a);
+    if(!seen.has(a.id) && q !== null && q >= QUIET_DAYS){ items.push({a, kind:"quiet", q}); seen.add(a.id); }
+  }
+  if(!items.length){ el.innerHTML = ""; return; }
+
+  const why = it => {
+    if(it.kind === "quiet") return t("quietFor", it.q);
+    const d = daysUntil(it.a.deadline);
+    return d < 0 ? t("overdueBy", -d) : t("dueIn", d);
+  };
+
+  const edge = items[0].kind === "over" ? "var(--rust)"
+             : items[0].kind === "soon" ? "var(--amber)" : "var(--graphite)";
+  el.innerHTML = `<div class="needs" style="--accent-edge:${edge}">
+    <div style="flex:1">
+      <h2>${esc(t("needsYou"))}</h2>
+      <ul>${items.slice(0,5).map(it => `<li>
+        <span class="who">${esc(it.a.company)}</span>
+        ${it.a.role ? `<span style="color:var(--muted)">${esc(it.a.role)}</span>` : ""}
+        <span class="why ${it.kind}">${esc(why(it))}</span></li>`).join("")}
+      </ul>
+      ${items.length > 5 ? `<p class="more" style="margin:8px 0 0">${esc(t("moreItems", items.length-5))}</p>` : ""}
+    </div>
+    <button class="x" id="dismissBanner" title="${esc(t("dismiss"))}" aria-label="${esc(t("dismiss"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>`;
+  $("#dismissBanner").onclick = () => { bannerDismissed = true; renderBanner(); };
+}
+
+/* ---------- season bar ---------- */
+const LIVE_STAGES = ["Wishlist","Applied","OA/Assessment","Interview","Offer"];
+const STAGE_VAR = {
+  "Wishlist":"var(--graphite)", "Applied":"var(--ink)", "OA/Assessment":"var(--amber)",
+  "Interview":"var(--violet)", "Offer":"var(--sage)"
+};
+
+function renderSeason(rows){
+  const el = $("#seasonBar");
+  if(view === "inbox" || !rows.length){ el.innerHTML = ""; return; }
+
+  const counts = LIVE_STAGES.map(st => rows.filter(a => a.stage === st).length);
+  const live = counts.reduce((a,b) => a+b, 0);
+  const settled = rows.filter(a => CLOSED.has(a.stage) && a.stage !== "Offer").length;
+
+  // One segment per application rather than per stage, so the bar can be
+  // counted and each piece names the application it stands for.
+  const liveApps = LIVE_STAGES.flatMap(st => rows.filter(a => a.stage === st));
+  const track = live
+    ? liveApps.map(a => `<span style="flex:1;background:${STAGE_VAR[a.stage]}"
+           title="${esc(a.company)}${a.role ? " - " + esc(a.role) : ""} · ${esc(tStage(a.stage))}"></span>`).join("")
+    : `<span class="season-empty"></span>`;
+
+  // Companies running more than one application, live or settled. Elsewhere
+  // they read as a repeated name; here the roles are spelled out.
+  const byCo = new Map();
+  for(const a of rows){
+    const k = compact(a.company) || a.company || "";
+    if(!byCo.has(k)) byCo.set(k, { name:a.company, items:[] });
+    byCo.get(k).items.push(a);
+  }
+  const multi = [...byCo.values()].filter(g => g.items.length > 1)
+    .sort((x,y) => y.items.length - x.items.length
+                || x.name.localeCompare(y.name, locale()));
+
+  el.innerHTML = `<div class="season">
+    <div class="season-top">
+      <span class="season-n">${live}</span>
+      <span class="season-lbl">${esc(t("stillLive"))}</span>
+      <span class="season-settled">${esc(t("settled", settled))}</span>
+    </div>
+    <div class="season-track">${track}</div>
+    <div class="season-key">
+      ${LIVE_STAGES.map((st,i) => counts[i]
+        ? `<span><i style="background:${STAGE_VAR[st]}"></i><b>${counts[i]}</b> ${esc(tStage(st).toLocaleLowerCase(locale()))}</span>`
+        : "").join("")}
+    </div>
+    ${multi.length ? `<div class="season-multi">${multi.map(g => `
+      <div class="season-co">
+        <span class="season-co-name">${esc(g.name)}<span class="co-n">${g.items.length}</span></span>
+        <span class="season-co-roles">${g.items.slice()
+          .sort((a,b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage))
+          .map(a => `<span class="season-role${CLOSED.has(a.stage) && a.stage !== "Offer" ? " done" : ""}"
+             ><i style="background:${STAGE_VAR[a.stage] || "var(--graphite)"}"></i>${
+             a.role ? esc(a.role) : esc(t("noRole"))}</span>`).join("")}</span>
+      </div>`).join("")}</div>` : ""}
+  </div>`;
+}
+
+/* ======================= render root ======================= */
+function render(){
+  fillFilters();          // before filtered(), which reads these selects
+  const rows = filtered();
+  renderBanner();
+  renderSeason(rows);
+
+  $("#count").textContent = rows.length === apps.length
+    ? t("countAll", apps.length)
+    : t("countSome", rows.length, apps.length);
+  $("#clearFilters").hidden = !($("#q").value || $("#fCat").value || $("#fKind").value
+                                || $("#fStage").value || $("#fDue").value);
+
+  $("#view-table").hidden = view !== "table";
+  $("#view-board").hidden = view !== "board";
+  $("#view-dash").hidden  = view !== "dash";
+  $("#view-inbox").hidden = view !== "inbox";
+  document.querySelector(".toolbar").hidden = view === "inbox";
+
+  if(view === "table") renderTable(rows);
+  else if(view === "board") renderBoard(rows);
+  else if(view === "dash") renderDash(rows);
+  else renderInbox();
+
+  renderInboxBadge();
+}
+
+/* ======================= form ======================= */
+function openForm(id, prefill){
+  editingId = id || null;
+  const a = id ? byId(id) : null;
+  const p = a || prefill || {};
+  $("#mTitle").textContent = a ? t("editApplication") : t("newApplication");
+  $("#deleteBtn").hidden = !a;
+
+  const f = $("#form");
+  f.company.value  = p.company  ?? "";
+  f.role.value     = p.role     ?? "";
+  f.category.value = p.category ?? CATEGORIES[0];
+  f.kind.value     = p.kind     ?? "Other";
+  f.stage.value    = p.stage    ?? "Applied";
+  f.applied.value  = a ? a.applied : (p.applied ?? todayISO());
+  f.deadline.value = p.deadline ?? "";
+  f.source.value   = p.source   ?? "";
+  f.link.value     = p.link     ?? "";
+  f.notes.value    = p.notes    ?? "";
+
+  $("#overlay").hidden = false;
+  setTimeout(() => f.company.focus(), 0);
+}
+function closeForm(){
+  $("#overlay").hidden = true;
+  editingId = null;
+  pendingEvent = null;   // abandoning the form leaves the Gmail suggestion unreviewed
+}
+
+$("#form").addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target;
+  const data = {
+    company: f.company.value.trim(),
+    role: f.role.value.trim(),
+    category: f.category.value,
+    kind: f.kind.value,
+    stage: f.stage.value,
+    applied: f.applied.value,
+    deadline: f.deadline.value,
+    source: f.source.value.trim(),
+    link: f.link.value.trim(),
+    notes: f.notes.value.trim(),
+    updated: Date.now()
+  };
+  if(!data.company) return;
+
+  if(editingId){
+    const a = byId(editingId);
+    // normalize() so an edit can't write a value the renderers don't expect.
+    if(a) Object.assign(a, normalize({ ...a, ...data }));
+  } else {
+    apps.push(normalize({ id: uid(), ...data }));
+    if(pendingEvent){                       // created from a Gmail suggestion
+      seen[pendingEvent.id] = "applied";
+      writeJSON(SEEN_KEY, seen);
+    }
+  }
+  save(); closeForm(); render();
+});
+
+$("#deleteBtn").onclick = () => {
+  const a = byId(editingId);
+  if(!a) return;
+  if(!confirm(t("confirmDelete", a.company + (a.role ? " — " + a.role : "")))) return;
+  apps = apps.filter(x => x.id !== editingId);
+  save(); closeForm(); render();
+};
+$("#cancelBtn").onclick = closeForm;
+$("#overlay").addEventListener("mousedown", e => { if(e.target.id === "overlay") closeForm(); });
+
+/* ======================= CSV ======================= */
+const CSV_COLS = ["company","role","category","kind","stage","applied","deadline","source","link","notes"];
+
+/* ---------- importing a spreadsheet you already keep ----------
+   Real sheets say "Company Name", "Position", "Status", "Date Applied". Only
+   accepting our own header names meant every such file imported as nothing:
+   unknown columns were dropped, no company survived, and the error blamed the
+   file. These are the headings people actually use. */
+const HEADER_ALIASES = {
+  company:  ["company","company name","employer","organisation","organization",
+             "firm","business","name"],
+  role:     ["role","position","job title","title","job","job role","job name",
+             "programme","program"],
+  stage:    ["stage","status","state","outcome","result","progress","response"],
+  applied:  ["applied","date applied","application date","applied on","date",
+             "submitted","date submitted","applied date"],
+  deadline: ["deadline","due","due date","closing date","closes","close date",
+             "cutoff"],
+  source:   ["source","via","channel","referral","where","found via","platform"],
+  link:     ["link","url","job link","posting","job posting","listing","website"],
+  notes:    ["notes","note","comments","comment","remarks","detail","details"],
+  category: ["category","sector","field","industry","area","team","function"],
+  kind:     ["kind","type","opportunity type","programme type","program type",
+             "job type","employment type"]
+};
+
+const STAGE_ALIASES = {
+  "Wishlist":           ["wishlist","to apply","saved","planned","not applied",
+                         "shortlist","backlog","interested"],
+  "Applied":            ["applied","submitted","in progress","pending","sent",
+                         "awaiting","waiting","under review","in review"],
+  "OA/Assessment":      ["oa","online assessment","assessment","test","screening",
+                         "hackerrank","take home","take-home","coding test",
+                         "aptitude"],
+  "Interview":          ["interview","interviewing","phone screen","final round",
+                         "assessment centre","assessment center","superday",
+                         "onsite"],
+  "Offer":              ["offer","offered","accepted","hired","success"],
+  "Rejected/Withdrawn": ["rejected","reject","declined","unsuccessful","no",
+                         "ghosted","withdrawn","withdrew","closed","dinged"]
+};
+
+const norm = h => String(h || "").trim().toLowerCase()
+  .replace(/[_\-/]+/g, " ").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+
+/** Our field name for a spreadsheet heading, or "" if we don't recognise it. */
+function mapHeader(h){
+  const n = norm(h);
+  if(!n) return "";
+  for(const [field, names] of Object.entries(HEADER_ALIASES)){
+    if(names.includes(n)) return field;
+  }
+  // "Company / Employer", "Date applied (UK)" - contains a known heading.
+  for(const [field, names] of Object.entries(HEADER_ALIASES)){
+    if(names.some(a => a.length > 3 && n.includes(a))) return field;
+  }
+  return "";
+}
+
+/** Map a free-text status onto our pipeline, or "" to leave it alone. */
+function mapStage(v){
+  const n = norm(v);
+  if(!n) return "";
+  for(const [stage, names] of Object.entries(STAGE_ALIASES)){
+    if(names.includes(n)) return stage;
+  }
+  for(const [stage, names] of Object.entries(STAGE_ALIASES)){
+    if(names.some(a => a.length > 2 && n.includes(a))) return stage;
+  }
+  return "";
+}
+
+const pad2 = n => String(n).padStart(2, "0");
+const toISODate = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+
+/**
+ * Which way round this sheet writes its dates.
+ *
+ * "5/1/2024" is 1 May in a British sheet and 5 January in an American one, and
+ * the file itself gives no clue. Any value whose first part exceeds 12 proves
+ * day-first; a second part above 12 proves month-first. Only when nothing in
+ * the whole column settles it do we fall back to the app's locale - and the
+ * import summary says which reading was used, because getting this silently
+ * wrong shifts every date by months.
+ */
+function detectDateOrder(values){
+  let dayFirst = 0, monthFirst = 0;
+  for(const v of values){
+    const m = /^(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})$/.exec(String(v ?? "").trim());
+    if(!m) continue;
+    if(+m[1] > 12) dayFirst++;
+    if(+m[2] > 12) monthFirst++;
+  }
+  if(dayFirst && !monthFirst) return "dmy";
+  if(monthFirst && !dayFirst) return "mdy";
+  return locale().startsWith("en-US") ? "mdy" : "dmy";
+}
+
+function parseImportDate(v, order){
+  if(v === null || v === undefined || v === "") return "";
+  if(v instanceof Date && !isNaN(v)){
+    // SheetJS builds dates from a fractional day serial and can land a second
+    // short of midnight - 14 July arrives as 13 July 23:59:04, so reading the
+    // local date gives the day before. Round to the nearest midnight rather
+    // than truncating, which is right on both sides of the boundary.
+    const d = new Date(v.getTime());
+    d.setHours(d.getHours() + 12);
+    d.setHours(0, 0, 0, 0);
+    return toISODate(d);
+  }
+
+  const str = String(v).trim();
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(str);
+  if(m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+
+  m = /^(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})$/.exec(str);
+  if(m){
+    const day = order === "mdy" ? m[2] : m[1];
+    const mon = order === "mdy" ? m[1] : m[2];
+    const yr  = m[3].length === 2 ? (+m[3] > 70 ? "19" : "20") + m[3] : m[3];
+    return `${yr}-${pad2(mon)}-${pad2(day)}`;
+  }
+  const d = new Date(str);                                   // "12 Aug 2026"
+  return isNaN(d) ? "" : toISODate(d);
+}
+
+/** Pick a value from a list by fuzzy name, e.g. "software" -> Engineering. */
+function mapListed(v, values, translate){
+  const n = norm(v);
+  if(!n) return "";
+  return values.find(x => norm(x) === n)
+      || values.find(x => translate && norm(translate(x)) === n)
+      || values.find(x => norm(x).includes(n) || n.includes(norm(x)))
+      || "";
+}
+
+function toCSV(){
+  const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  return [CSV_COLS.join(","), ...apps.map(a => CSV_COLS.map(c => q(a[c])).join(","))].join("\r\n");
+}
+$("#exportBtn").onclick = () => {
+  if(!apps.length){ alert(t("nothingToExport")); return; }
+  const blob = new Blob(["﻿" + toCSV()], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `applications-${todayISO()}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+/** Minimal RFC4180 parser — handles quoted fields, embedded commas/newlines. */
+function parseCSV(text){
+  const rows = []; let row = [], cell = "", inQ = false;
+  text = text.replace(/^﻿/, "");
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(inQ){
+      if(ch === '"'){ if(text[i+1] === '"'){ cell += '"'; i++; } else inQ = false; }
+      else cell += ch;
+    } else if(ch === '"') inQ = true;
+    else if(ch === ","){ row.push(cell); cell = ""; }
+    else if(ch === "\n"){ row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if(ch !== "\r") cell += ch;
+  }
+  if(cell || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+$("#importBtn").onclick = () => $("#importFile").click();
+/* SheetJS, fetched only when an .xlsx is actually chosen, so a CSV import and
+   every other use of the page stay offline-capable. */
+let xlsxLoading = null;
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(!xlsxLoading) xlsxLoading = new Promise((resolve, reject) => {
+    const tag = document.createElement("script");
+    tag.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    tag.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error(t("xlsxFailed")));
+    tag.onerror = () => { xlsxLoading = null; reject(new Error(t("xlsxFailed"))); };
+    document.head.appendChild(tag);
+  });
+  return xlsxLoading;
+}
+
+/** Rows of cells from .xlsx or .csv alike. */
+async function readSheet(file){
+  if(/\.xlsx?$/i.test(file.name)){
+    const XLSX = await loadXLSX();
+    const wb = XLSX.read(await file.arrayBuffer(), { type:"array", cellDates:true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];   // first tab, like Sheets exports
+    return XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:"" });
+  }
+  return parseCSV(await file.text());
+}
+
+$("#importFile").onchange = async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  e.target.value = "";
+  try{
+    const rows = (await readSheet(file))
+      .filter(r => r.some(c => String(c ?? "").trim() !== ""));
+    if(rows.length < 2) throw new Error(t("csvNoRows"));
+
+    const head = rows[0].map(h => String(h ?? "").trim());
+    const fields = head.map(mapHeader);
+    const at = f => fields.indexOf(f);
+    if(at("company") < 0) throw new Error(t("importNoCompany", head.filter(Boolean).join(", ")));
+
+    // Decide the date convention from the whole column, not row by row.
+    const dateCols = ["applied","deadline"].map(at).filter(i => i >= 0);
+    const order = detectDateOrder(rows.slice(1).flatMap(r => dateCols.map(i => r[i])));
+
+    const cell = (r, f) => { const i = at(f); return i < 0 ? "" : String(r[i] ?? "").trim(); };
+    const rawCell = (r, f) => { const i = at(f); return i < 0 ? "" : r[i]; };
+
+    const added = rows.slice(1).map(r => normalize({
+      id: uid(),
+      company: cell(r, "company"),
+      role: cell(r, "role"),
+      // A row in an applications sheet is there because you applied; only an
+      // explicit status says otherwise.
+      stage: mapStage(cell(r, "stage")) || "Applied",
+      category: mapListed(cell(r, "category"), CATEGORIES, tCat) || "Other",
+      kind: mapListed(cell(r, "kind"), KINDS, tKind) || "Other",
+      applied: parseImportDate(rawCell(r, "applied"), order),
+      deadline: parseImportDate(rawCell(r, "deadline"), order),
+      source: cell(r, "source"),
+      link: cell(r, "link"),
+      notes: cell(r, "notes"),
+      updated: Date.now()
+    })).filter(a => a.company);
+
+    if(!added.length) throw new Error(t("csvNoCompany"));
+
+    // Say what was understood before writing anything - a silent import that
+    // quietly drops half your columns is worse than one that fails.
+    const matched = head.map((h, i) => fields[i] ? `${h} → ${fields[i]}` : null)
+                        .filter(Boolean).join("\n  ");
+    const ignored = head.filter((h, i) => h && !fields[i]).join(", ");
+    if(!confirm(t("importPreview", added.length, matched, ignored,
+                  t(order === "mdy" ? "dateMdy" : "dateDmy")))) return;
+
+    apps = apps.concat(added);
+    save(); render();
+  }catch(err){
+    alert(t("importFailed", err.message, CSV_COLS.join(", ")));
+  }
+};
+
+/* =====================================================================
+   Gmail sync
+   The Apps Script does the reading and the stage classification. Everything
+   here is about deciding WHICH application an email belongs to, and never
+   silently overwriting your data: by default every change lands in a review
+   queue and you press Apply.
+   ===================================================================== */
+
+const CFG_KEY = "app-tracker.sync", SEEN_KEY = "app-tracker.seen", EV_KEY = "app-tracker.events";
+
+let cfg    = readJSON(CFG_KEY,  { url:"", token:"", days:120, auto:true, onload:false, last:0 });
+let seen   = readJSON(SEEN_KEY, {});          // eventId -> "applied" | "dismissed"
+let events = readJSON(EV_KEY,   []);          // last payload from the script
+let pendingEvent = null;                      // event awaiting "Create application"
+let agentWindow = readJSON("app-tracker.window", 0);  // days the agent last scanned
+
+function readJSON(k, fallback){
+  try{ const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback; }
+  catch(e){ return fallback; }
+}
+function writeJSON(k, v){
+  try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ console.warn("save failed", k, e); }
+}
+
+/* ---------- name normalisation ---------- */
+const STOPWORDS = new Set(["ltd","limited","plc","inc","llc","corp","corporation","group","the",
+  "uk","international","global","holdings","partners","llp","gmbh","sa","ag","co"]);
+const MULTI_TLD = new Set(["co.uk","ac.uk","org.uk","gov.uk","com.au","co.jp","co.nz","com.br","co.in","com.sg"]);
+
+function normName(s){
+  return String(s || "").toLowerCase().replace(/&/g," and ")
+    .replace(/[^a-z0-9\s]/g," ").split(/\s+/)
+    .filter(w => w && !STOPWORDS.has(w)).join(" ");
+}
+const compact = s => normName(s).replace(/\s/g,"");
+
+function domainRoot(domain){
+  const p = String(domain || "").toLowerCase().split(".");
+  if(p.length >= 3 && MULTI_TLD.has(p.slice(-2).join("."))) return p[p.length-3];
+  if(p.length >= 2) return p[p.length-2];
+  return p[0] || "";
+}
+
+/* Words that appear in nearly every graduate job title and so distinguish
+   nothing. Without stripping these, "Software Engineer Intern" and "Data
+   Science Intern" look 33% alike on the strength of "intern". */
+const ROLE_NOISE = new Set(["intern","interns","internship","programme","program",
+  "scheme","role","position","summer","spring","winter","student","graduate",
+  "placement","start","the","and","for","with","new"]);
+
+function roleWords(s){
+  return [...new Set(normName(s).split(" ")
+    .filter(w => w.length > 3 && !ROLE_NOISE.has(w) && !/^\d+$/.test(w)))];
+}
+
+/**
+ * Does this mail belong to this application? Asymmetric on purpose.
+ *
+ * Mail naming no role can't disagree with anything, so it still matches on
+ * company - that is most mail. But mail that DOES name a role must not be
+ * absorbed by a row that has none, or the first roleless message a company
+ * sends claims every later role too. Revolut's bare "Your application to
+ * Revolut" rejection swallowed the Product Data Analyst pipeline that way.
+ */
+function sameRole(rowRole, mailRole){
+  const row = roleWords(rowRole), mail = roleWords(mailRole);
+  if(!mail.length) return true;    // mail names no role
+  if(!row.length) return false;    // mail names one, this row doesn't
+  const overlap = row.filter(w => mail.includes(w)).length;
+  return overlap >= Math.min(2, row.length, mail.length);
+}
+
+/** Best application for an email, or null. Scored so near-misses stay out. */
+function matchApp(ev){
+  let best = null;
+  for(const a of apps){
+    const cc = compact(a.company);
+    if(!cc) continue;
+    // A company running several roles is several applications. A stated role
+    // that contradicts this row's role means this is not that application.
+    if(!sameRole(a.role, ev.roleHint)) continue;
+    let score = 0; const why = [];
+
+    // A per-tenant ATS host names the employer in its subdomain. guessCompany
+    // already treats this as the strongest signal; the matcher has to agree,
+    // or an ATS mail whose subject omits the company offers to create a
+    // duplicate of an application that already exists.
+    if(ev.companyHint){
+      const hint = compact(ev.companyHint);
+      if(hint && (hint === cc ||
+          (hint.length >= 4 && cc.length >= 4 &&
+           (hint.includes(cc) || cc.includes(hint))))){
+        score += 4; why.push(t("whyATS", esc(ev.companyHint)));
+      }
+    }
+
+    if(!ev.isATS && ev.domain){
+      const dr = domainRoot(ev.domain);
+      if(dr && dr === cc){ score += 4; why.push(t("whyDomain", esc(dr))); }
+      else if(dr.length >= 4 && cc.length >= 4 && (dr.includes(cc) || cc.includes(dr))){
+        score += 3; why.push(t("whyDomain", esc(dr)));
+      }
+    }
+    const nameN = compact(ev.fromName);
+    if(cc.length >= 3 && nameN && nameN.includes(cc)){ score += 3; why.push(t("whySender")); }
+
+    // A company named in the subject is a strong signal — often the only one
+    // available when the mail comes through an ATS. In the body it's weaker.
+    if(cc.length >= 4 && compact(ev.subject).includes(cc)){
+      score += 3; why.push(t("whySubject"));
+    } else if(cc.length >= 4 && compact(ev.snippet).includes(cc)){
+      score += 2; why.push(t("whyBody"));
+    }
+
+    if(a.role && score){
+      const words = a.role.toLowerCase().split(/\W+/).filter(w => w.length > 4);
+      const text = `${ev.subject} ${ev.snippet}`.toLowerCase();
+      if(words.some(w => text.includes(w))){ score += 1; why.push(t("whyRole")); }
+    }
+    if(score >= 3 && (!best || score > best.score ||
+       (score === best.score && a.updated > best.app.updated))){
+      best = { app:a, score, why };
+    }
+  }
+  return best;
+}
+
+const JUNK_SRC = "\\b(careers?|recruit(ing|ment)?|talent|hiring|jobs?|no[-\\s]?reply|noreply|team|hr|people|university|assessments?|applications?)\\b";
+const JUNK_WORDS = new RegExp(JUNK_SRC, "gi");   // for replace()
+const HAS_JUNK   = new RegExp(JUNK_SRC, "i");    // for test() — no lastIndex to carry
+const titleCase = s => s.replace(/\s+/g," ").trim()
+  .split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+// Display names an ATS uses only when the employer hasn't branded its mail.
+const ATS_VENDOR_NAME = /^(greenhouse|workday|myworkday|lever|smartrecruiters|icims|taleo|successfactors|avature|ashby|jobvite|workable|teamtailor|eightfold|brassring|oracle)\b/i;
+
+// Two to four plain words — the shape of a person's name, once job-title junk
+// has been stripped off.
+const PERSONAL_NAME = /^[a-z]+(?:\s+[a-z]+){1,3}$/i;
+
+/* A domain gives a run-together label — "morganstanley", "janestreet" — and
+   the properly spaced form is usually in the mail itself. Find the shortest
+   run of words whose compacted form is exactly that label. */
+function spacedFrom(root, ...texts){
+  if(!root) return "";
+  const words = texts.join(" ").split(/\s+/).filter(Boolean);
+  for(let i = 0; i < words.length; i++){
+    // Never begin on a word that compacts to nothing. "the" is a stopword, so
+    // a window starting there matches the same text but keeps the article:
+    // "From the D. E. Shaw group" yielded "The D E Shaw".
+    if(!compact(words[i])) continue;
+    let acc = "";
+    for(let j = i; j < Math.min(i + 4, words.length); j++){
+      acc += compact(words[j]);
+      if(acc === root){
+        return words.slice(i, j + 1).join(" ").replace(/[^\w&\s'-]/g,"").trim();
+      }
+      if(acc.length >= root.length) break;
+    }
+  }
+  return "";
+}
+
+function guessCompany(ev){
+  // A per-tenant ATS host names the employer in its own subdomain
+  // (morganstanley.tal.net); the agent passes that through. Strongest signal
+  // available, so it wins outright.
+  if(ev.companyHint){
+    return titleCase(spacedFrom(ev.companyHint, ev.subject, ev.snippet)
+                     || ev.companyHint);
+  }
+
+  const raw = String(ev.fromName || "").trim();
+  const name = raw.replace(JUNK_WORDS,"").replace(/[|·–-]+/g," ").trim();
+  const root = domainRoot(ev.domain);
+
+  // Most employers send ATS mail under their own display name ("Citadel" via
+  // myworkday.com), so the name is the best signal even when isATS. Only when
+  // the vendor's own name shows through is the subject better — those lead
+  // with the company: "Optiver - interview invitation".
+  if(ev.isATS && (name.length < 2 || ATS_VENDOR_NAME.test(raw))){
+    // Employers often sit right behind the vendor in the display name
+    // ("workday.hr newscorp"). Take what's left once the vendor is removed.
+    const rest = raw.replace(ATS_VENDOR_NAME, "").replace(JUNK_WORDS, "")
+                    .replace(/[^\w&\s'-]+/g, " ").trim();
+    if(rest.length >= 3 && !ATS_VENDOR_NAME.test(rest)) return titleCase(rest);
+
+    const lead = String(ev.subject || "").split(/\s[-–—|:]\s/)[0].trim();
+    if(lead && lead.length <= 40 && !HAS_JUNK.test(lead)) return titleCase(lead);
+  }
+
+  // On a company's own domain the domain is authoritative. A display name
+  // shaped like a person and not corroborating it is an individual recruiter
+  // ("Zhi Ying Khwong" <…@revolut.com>) — the employer is Revolut.
+  // A domain root only outranks a display name when it is long enough to name
+  // something. "Texas Instruments" is two capitalised words, so it looks like a
+  // person, and recruiting.ti.com would otherwise rename it "Ti".
+  if(!ev.isATS && root.length >= 4 && PERSONAL_NAME.test(name)
+     && !compact(name).includes(root)){
+    return titleCase(spacedFrom(root, ev.subject, ev.snippet) || root);
+  }
+
+  if(name.length >= 2) return titleCase(name);
+  return titleCase(spacedFrom(root, ev.subject, ev.snippet) || root);
+}
+
+/* ---------- suggestions ---------- */
+function suggestions(){
+  const out = [];
+  for(const ev of events){
+    if(!ev || !ev.id || seen[ev.id]) continue;
+    if(!STAGES.includes(ev.stage)) continue;
+
+    const m = matchApp(ev);
+    if(m){
+      const cur = STAGES.indexOf(m.app.stage), next = STAGES.indexOf(ev.stage);
+      if(next === cur) continue;                                   // already there
+      const terminal = ev.stage === "Rejected/Withdrawn";
+      if(next < cur && !terminal) continue;                        // never suggest going backwards
+      out.push({ type:"stage", ev, app:m.app, why:m.why, score:m.score });
+    } else if(ev.confidence === "high"){
+      out.push({ type:"new", ev, guess: guessCompany(ev) });
+    }
+  }
+  out.sort((a,b) =>
+    (a.type === b.type ? 0 : a.type === "stage" ? -1 : 1) ||
+    cmpDate(b.ev.date, a.ev.date));
+  return out;
+}
+
+function noteLine(ev){
+  return `[${ev.date}] → ${tStage(ev.stage)} · ${ev.subject} (Gmail sync)`;
+}
+function applySuggestion(s){
+  const a = s.app;
+
+  // Later mail often names the role the first message left out. Fill gaps
+  // only — never overwrite something already there, whether you typed it or
+  // an earlier email supplied it.
+  if(!a.role && s.ev.roleHint) a.role = s.ev.roleHint;
+  if((!a.category || a.category === "Other") && s.ev.categoryHint){
+    a.category = s.ev.categoryHint;
+  }
+  if((!a.kind || a.kind === "Other") && s.ev.kindHint) a.kind = s.ev.kindHint;
+
+  a.stage = s.ev.stage;
+  a.notes = a.notes ? `${a.notes}\n${noteLine(s.ev)}` : noteLine(s.ev);
+  a.updated = Date.now();
+  seen[s.ev.id] = "applied";
+  save(); writeJSON(SEEN_KEY, seen);
+}
+
+/**
+ * Earliest mail from the same company, at any confidence.
+ *
+ * A rejection is often the only *confident* message a company ever sent, so
+ * seeding `applied` from it dates the application to the day it died. The
+ * "your application has been received" note that arrived weeks earlier is
+ * usually sitting right there, just below the confidence bar.
+ */
+/**
+ * Everything the mailbox knows about one application, gathered from every
+ * message for that company at any confidence.
+ *
+ * The triggering message is often the rejection, which tends to say nothing
+ * but "we will not be moving forward". Citadel named the role and implied the
+ * category in a low-confidence "application received" three weeks earlier;
+ * that message can never advance a row already closed, so without gathering
+ * here the fact sits in events.json unused and the row reads "Other".
+ */
+function companyFacts(ev, guess, role){
+  const key = compact(guess || "");
+  const dom = String(ev.domain || "").toLowerCase();
+
+  const mine = events.filter(e => {
+    if(!e || !e.date) return false;
+    // Domain is only a safe key when neither side is an ATS: G-Research and
+    // Dow Jones both send from myworkday.com and are not the same employer.
+    const sameDomain = !ev.isATS && !e.isATS && dom && e.domain
+                       && e.domain.toLowerCase() === dom;
+    const sameName = key && compact(guessCompany(e)) === key;
+    if(!(sameDomain || sameName)) return false;
+    // Once roles are separate applications the Data Science row must not
+    // inherit Software Engineer facts. A row with no role yet is still
+    // learning, so anything from the company may inform it.
+    return !role || sameRole(role, e.roleHint);
+  }).sort((a,b) => cmpDate(a.date, b.date));
+
+  const facts = { date: ev.date, role: role || "", category: "", kind: "" };
+  for(const e of mine){
+    if(cmpDate(e.date, facts.date) < 0) facts.date = e.date;
+    // Earliest statement wins: what they first called it is the name to keep.
+    if(!facts.role && e.roleHint){
+      facts.role = e.roleHint;
+      facts.category = e.categoryHint || "";
+    }
+    if(!facts.category && e.categoryHint) facts.category = e.categoryHint;
+    if(!facts.kind && e.kindHint) facts.kind = e.kindHint;
+  }
+  return facts;
+}
+
+/** Creates an application straight from a confident suggestion, no dialog. */
+function createFromSuggestion(s){
+  const facts = companyFacts(s.ev, s.guess, s.ev.roleHint);
+  const a = normalize({
+    id: uid(),
+    company: s.guess,
+    role: facts.role,
+    category: facts.category || "Other",
+    kind: facts.kind || "Other",
+    stage: s.ev.stage,
+    applied: facts.date,
+    source: s.ev.isATS ? t("srcDirect") : "",
+    notes: noteLine(s.ev),
+    link: "",
+    updated: Date.now()
+  });
+  apps.push(a);
+  seen[s.ev.id] = "applied";
+  save(); writeJSON(SEEN_KEY, seen);
+  return a;
+}
+
+/**
+ * Acts on everything unambiguous: high-confidence mail becomes rows in the
+ * table directly, and only the uncertain remainder waits in the inbox.
+ *
+ * Suggestions are re-derived after every change rather than iterated once.
+ * Creating "Optiver" turns that company's other eight emails into stage
+ * updates; walking a stale list would instead create Optiver nine times.
+ */
+function autoApply(){
+  let applied = 0, created = 0;
+  const declined = new Set();
+
+  for(let guard = 0; guard < 500; guard++){
+    // Rejections auto-create too. They are the outcome you are least likely to
+    // remember and most likely to want counted, and holding them for review
+    // just meant a queue of things you would accept anyway. Still high
+    // confidence only, and still inside the window you are looking at.
+    const cands = suggestions().filter(x =>
+      !declined.has(x.ev.id) && x.ev.confidence === "high" &&
+      (x.type === "stage" ? x.score >= 3 : true));
+
+    // Order matters once a company can hold several applications. Mail that
+    // names a role must establish its row first; a roleless message handled
+    // earlier creates a bare row that the role mail can then never join, and
+    // you end up with a phantom third "Revolut" alongside the two real ones.
+    const s = cands.find(x => x.type === "stage")
+           || cands.find(x => x.ev.roleHint)
+           || cands[0];
+    if(!s) break;
+
+    if(s.type === "stage"){ applySuggestion(s); applied++; continue; }
+
+    // Last line of defence against duplicates: if matchApp somehow fails to
+    // recognise a company we just added, leave the mail for review instead of
+    // adding it a second time.
+    const name = compact(s.guess);
+    if(name.length < 2 || apps.some(a => compact(a.company) === name
+                                        && sameRole(a.role, s.ev.roleHint))){
+      declined.add(s.ev.id);
+      continue;
+    }
+
+    // Seed from this company's *earliest* confident mail, so `applied` is when
+    // you applied rather than whichever status email happens to be newest.
+    // The later ones then advance the stage in the passes that follow.
+    const first = suggestions()
+      .filter(x => x.type === "new" && x.ev.confidence === "high" &&
+                   !declined.has(x.ev.id) && compact(x.guess) === name &&
+                   sameRole(s.ev.roleHint, x.ev.roleHint))
+      .reduce((a, b) => {
+        const d = cmpDate(a.ev.date, b.ev.date);
+        if(d !== 0) return d < 0 ? a : b;
+        // Same day: start at the earliest stage, so "Thank you for applying"
+        // seeds the row and the assessment mail advances it, leaving both in
+        // the notes rather than only the later one.
+        return STAGES.indexOf(a.ev.stage) <= STAGES.indexOf(b.ev.stage) ? a : b;
+      }, s);
+
+    createFromSuggestion(first); created++;
+  }
+  return { applied, created };
+}
+
+/* ---------- transport ----------
+   The tracker runs from file://, whose origin is "null", so a normal fetch
+   would be blocked by CORS. A script tag isn't, hence JSONP.               */
+function jsonp(url, timeoutMs = 20000){
+  return new Promise((resolve, reject) => {
+    const cb = "__sync_cb_" + Math.random().toString(36).slice(2);
+    const tag = document.createElement("script");
+    let timer;
+    const cleanup = () => { clearTimeout(timer); delete window[cb]; tag.remove(); };
+    window[cb] = data => { cleanup(); resolve(data); };
+    tag.onerror = () => { cleanup(); reject(new Error(t("errUnreachable"))); };
+    timer = setTimeout(() => { cleanup();
+      reject(new Error(t("errTimeout"))); }, timeoutMs);
+    tag.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
+    document.head.appendChild(tag);
+  });
+}
+
+/* ---------- local agent transport ----------
+   `python -m agent` writes data/events.json beside this page. Over
+   http://localhost a plain fetch reads it; from file:// it cannot, which is
+   what `python -m agent --serve` exists to solve. Local mode is simply
+   "no Apps Script URL configured" — the default.                            */
+function isLocalMode(){ return !cfg.url; }
+
+async function fetchLocalEvents(){
+  let res;
+  try{
+    res = await fetch("data/events.json?t=" + Date.now(), { cache: "no-store" });
+  }catch(e){
+    throw new Error(t("errNoServer"));
+  }
+  if(res.status === 404) throw new Error(t("errNoFile"));
+  if(!res.ok) throw new Error(t("errStatus", res.status));
+  return res.json();
+}
+
+function setSyncState(msg, isErr){
+  const el = $("#syncState");
+  el.textContent = msg || "";
+  el.className = "sync-state" + (isErr ? " err" : "");
+}
+
+async function syncGmail(){
+  const local = isLocalMode();
+  if(!local && !cfg.token){ openSettings(); return; }
+  if(local && location.protocol === "file:"){
+    setSyncState(t("errServe"), true);
+    return;
+  }
+  $("#syncBtn").disabled = true;
+  setSyncState(t("syncing"));
+  try{
+    let data;
+    if(local){
+      data = await fetchLocalEvents();
+    }else{
+      const url = `${cfg.url}?token=${encodeURIComponent(cfg.token)}&days=${encodeURIComponent(cfg.days)}`;
+      data = await jsonp(url);
+    }
+    if(!data || !data.ok){
+      throw new Error(data && data.error === "unauthorized"
+        ? t("errToken") : (data && data.error) || t("errUnexpected"));
+    }
+    agentWindow = Number(data.lookbackDays) || 0;
+    const all = Array.isArray(data.events) ? data.events : [];
+    // The days setting now filters what the tracker considers. Narrowing works
+    // instantly; widening past what the agent actually scanned can't invent
+    // mail, so the settings panel says so rather than silently showing nothing.
+    const cutoff = new Date(Date.now() - cfg.days * 864e5).toISOString().slice(0,10);
+    events = all.filter(e => !e.date || e.date >= cutoff);
+    writeJSON(EV_KEY, events);
+    cfg.last = Date.now(); writeJSON(CFG_KEY, cfg);
+    writeJSON("app-tracker.window", agentWindow);
+
+    const auto = cfg.auto ? autoApply() : { applied:0, created:0 };
+    const left = suggestions().length;
+    setSyncState(t("syncedAt", new Date().toLocaleTimeString(locale(), {hour:"2-digit",minute:"2-digit"})) +
+      (auto.created ? t("nAdded", auto.created) : "") +
+      (auto.applied ? t("nUpdated", auto.applied) : "") +
+      t("nToReview", left));
+    render();
+  }catch(err){
+    setSyncState(t("syncFailed", err.message), true);
+  }finally{
+    $("#syncBtn").disabled = false;
+  }
+}
+
+/* ---------- inbox view ---------- */
+function renderInboxBadge(){
+  const n = suggestions().length;
+  const b = $("#inboxBadge");
+  b.hidden = n === 0;
+  b.textContent = n;
+}
+
+function renderInbox(){
+  const el = $("#view-inbox");
+  if(isLocalMode() && location.protocol === "file:"){
+    el.innerHTML = `<div class="card"><div class="empty">
+      <h3>${esc(t("fileTitle"))}</h3>
+      <p>${t("fileBody")}</p>
+      <p style="margin-top:10px"><code>python -m agent --serve</code></p>
+    </div></div>`;
+    return;
+  }
+  if(!isLocalMode() && !cfg.token){
+    el.innerHTML = `<div class="card"><div class="empty">
+      <h3>${esc(t("tokenTitle"))}</h3>
+      <p>${t("tokenBody")}</p>
+      <p style="margin-top:14px"><button class="btn primary" id="openSettings2">${esc(t("openSettingsBtn"))}</button></p>
+    </div></div>`;
+    $("#openSettings2").onclick = openSettings;
+    return;
+  }
+  const list = suggestions();
+  const last = cfg.last ? new Date(cfg.last).toLocaleString(locale()) : t("never");
+
+  el.innerHTML = `
+    <div class="inbox-head">
+      <h2>${esc(t("updatesToReview", list.length))}</h2>
+      <span class="hint">${esc(t("lastSync", last))}</span>
+      <span class="spacer"></span>
+      ${list.length ? `<button class="btn sm" id="dismissAll">${esc(t("dismissAll"))}</button>` : ""}
+      <button class="btn sm" id="syncBtn2">${esc(t("syncNow"))}</button>
+    </div>
+    ${list.length ? list.map(sugHTML).join("") : `<div class="card"><div class="empty">
+        <h3>${esc(t("nothingNewTitle"))}</h3><p>${esc(t("nothingNewBody"))}</p></div></div>`}`;
+
+  $("#syncBtn2").onclick = syncGmail;
+  const da = $("#dismissAll");
+  if(da) da.onclick = () => {
+    if(!confirm(t("confirmDismissAll", list.length))) return;
+    list.forEach(s => { seen[s.ev.id] = "dismissed"; });
+    writeJSON(SEEN_KEY, seen);
+    render();
+  };
+}
+
+function sugHTML(s){
+  const ev = s.ev;
+  const from = esc(ev.fromName || ev.domain || ev.fromAddress || t("unknownSender"));
+  const meta = `${from} · ${fmtDate(ev.date)}${ev.isATS ? esc(t("viaATS")) : ""}`;
+  const conf = ev.confidence === "high"
+    ? "" : `<span class="pill s-oa" style="font-size:11px">${esc(t("lowConf"))}</span>`;
+
+  if(s.type === "stage"){
+    return `<div class="sug ${ev.confidence === "high" ? "high" : "low"}">
+      <div class="main">
+        <div class="subj">${esc(ev.subject)}</div>
+        <div class="meta">${meta}</div>
+        <div class="move">
+          <b>${esc(s.app.company)}</b>
+          <span class="pill ${STAGE_CLASS[s.app.stage]}">${esc(tStage(s.app.stage))}</span>
+          <span class="arrow-to">→</span>
+          <span class="pill ${STAGE_CLASS[ev.stage]}">${esc(tStage(ev.stage))}</span>
+          ${conf}
+        </div>
+        ${ev.snippet ? `<p class="snip">${esc(ev.snippet)}…</p>` : ""}
+        <div class="why">${t("matchedBy", s.why.join(", "))}${
+          ev.matchedOn ? t("phraseWas", esc(ev.matchedOn)) : ""}</div>
+      </div>
+      <div class="acts">
+        <button class="btn sm primary" data-apply="${esc(ev.id)}">${esc(t("apply"))}</button>
+        <button class="btn sm" data-dismiss="${esc(ev.id)}">${esc(t("dismiss"))}</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="sug new">
+    <div class="main">
+      <div class="subj">${esc(ev.subject)}</div>
+      <div class="meta">${meta}</div>
+      <div class="move">
+        <span class="hint">${esc(t("noMatch"))}</span>
+        <span>${t("createAt", esc(s.guess))}</span>
+        <span class="pill ${STAGE_CLASS[ev.stage]}">${esc(tStage(ev.stage))}</span>
+        ${conf}
+      </div>
+      ${ev.snippet ? `<p class="snip">${esc(ev.snippet)}…</p>` : ""}
+    </div>
+    <div class="acts">
+      <button class="btn sm primary" data-create="${esc(ev.id)}">${esc(t("create"))}</button>
+      <button class="btn sm" data-dismiss="${esc(ev.id)}">${esc(t("dismiss"))}</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- settings modal ---------- */
+function openSettings(){
+  $("#s-url").value    = cfg.url;
+  $("#s-token").value  = cfg.token;
+  $("#s-days").value   = cfg.days;
+  const hint = $("#s-days-hint");
+  if(!agentWindow){
+    hint.textContent = t("daysNever");
+  } else if(cfg.days > agentWindow){
+    hint.innerHTML = t("daysOver", agentWindow, cfg.days);
+  } else {
+    hint.textContent = t("daysOk", agentWindow);
+  }
+  $("#s-lang").value = lang;
+  $("#s-auto").checked = !!cfg.auto;
+  $("#s-onload").checked = !!cfg.onload;
+  $("#setOverlay").hidden = false;
+  setTimeout(() => $("#s-url").focus(), 0);
+}
+const closeSettings = () => { $("#setOverlay").hidden = true; };
+
+$("#settingsBtn").onclick = openSettings;
+$("#s-cancel").onclick = closeSettings;
+$("#setOverlay").addEventListener("mousedown", e => { if(e.target.id === "setOverlay") closeSettings(); });
+$("#s-save").onclick = () => {
+  const url = $("#s-url").value.trim();
+  if(url && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec/.test(url)){
+    if(!confirm(t("confirmBadUrl"))) return;
+  }
+  cfg = { ...cfg, url, token: $("#s-token").value.trim(),
+    days: Math.min(3650, Math.max(1, parseInt($("#s-days").value, 10) || 120)),
+    auto: $("#s-auto").checked, onload: $("#s-onload").checked };
+  writeJSON(CFG_KEY, cfg);
+  closeSettings();
+  render();
+};
+$("#s-forget").onclick = () => {
+  if(!confirm(t("confirmForget"))) return;
+  cfg = { url:"", token:"", days:120, auto:true, onload:false, last:0 };
+  seen = {}; events = [];
+  writeJSON(CFG_KEY, cfg); writeJSON(SEEN_KEY, seen); writeJSON(EV_KEY, events);
+  closeSettings(); setSyncState(""); render();
+};
+$("#syncBtn").onclick = syncGmail;
+
+/* ---------- suggestion actions ---------- */
+document.addEventListener("click", e => {
+  const ap = e.target.closest("[data-apply]");
+  if(ap){
+    const s = suggestions().find(x => x.ev.id === ap.dataset.apply);
+    if(s){ applySuggestion(s); render(); }
+    return;
+  }
+  const dm = e.target.closest("[data-dismiss]");
+  if(dm){
+    seen[dm.dataset.dismiss] = "dismissed";
+    writeJSON(SEEN_KEY, seen);
+    render();
+    return;
+  }
+  const cr = e.target.closest("[data-create]");
+  if(cr){
+    const s = suggestions().find(x => x.ev.id === cr.dataset.create);
+    if(!s) return;
+    pendingEvent = s.ev;
+    const cf = companyFacts(s.ev, s.guess, s.ev.roleHint);
+    openForm(null, {
+      company: s.guess, stage: s.ev.stage,
+      applied: cf.date, role: cf.role,
+      category: cf.category || CATEGORIES[0],
+      kind: cf.kind || "Other",
+      source: s.ev.isATS ? t("srcDirect") : "", notes: noteLine(s.ev)
+    });
+  }
+});
+
+/* ======================= events ======================= */
+document.querySelectorAll("nav.tabs button").forEach(b => {
+  b.onclick = () => {
+    view = b.dataset.view;
+    document.querySelectorAll("nav.tabs button")
+      .forEach(x => x.setAttribute("aria-selected", String(x === b)));
+    render();
+  };
+});
+["q","fCat","fKind","fStage","fDue"].forEach(id => $("#"+id).addEventListener("input", render));
+$("#clearFilters").onclick = () => {
+  $("#q").value = ""; $("#fCat").value = ""; $("#fKind").value = "";
+  $("#fStage").value = ""; $("#fDue").value = "";
+  render();
+};
+$("#addBtn").onclick = () => openForm();
+
+document.addEventListener("click", e => {
+  const th = e.target.closest("th.sortable");
+  if(th){
+    const k = th.dataset.sort;
+    sort = { key:k, dir: sort.key === k ? -sort.dir : 1 };
+    render();
+    return;
+  }
+  const btn = e.target.closest("[data-edit]");
+  if(btn){ openForm(btn.dataset.edit); return; }
+  // Whole row opens the editor. On mobile the Edit button is hidden and the
+  // card is the tap target; links and buttons inside keep their own behaviour.
+  const tr = e.target.closest("tbody tr[data-id]");
+  if(tr && !e.target.closest("a,button")){ openForm(tr.dataset.id); return; }
+  const kc = e.target.closest(".kcard");
+  if(kc) openForm(kc.dataset.id);
+});
+
+document.addEventListener("keydown", e => {
+  if(!$("#setOverlay").hidden){
+    if(e.key === "Escape") closeSettings();
+    return;
+  }
+  const open = !$("#overlay").hidden;
+  if(open){
+    if(e.key === "Escape") closeForm();
+    if((e.metaKey || e.ctrlKey) && e.key === "Enter") $("#form").requestSubmit();
+    return;
+  }
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if(typing){ if(e.key === "Escape") document.activeElement.blur(); return; }
+  if(e.key === "n" || e.key === "N"){ e.preventDefault(); openForm(); }
+  if(e.key === "/"){ e.preventDefault(); $("#q").focus(); }
+});
+
+/* ======================= init ======================= */
+/* Option values stay canonical; only the visible label is translated, so a
+   language switch never changes what a filter or a saved row means. */
+/**
+ * Category and Type filters list only values in use.
+ *
+ * With eight categories and six types, a dropdown of everything is mostly
+ * things you have never applied to. Counted over all applications rather than
+ * the filtered rows - otherwise picking a value would empty the very list it
+ * came from. Stage is left complete: the pipeline is fixed, and "Offer" should
+ * stay selectable even while you have none.
+ *
+ * The edit form keeps every option, since you must be able to choose one you
+ * have not used yet.
+ */
+function fillFilters(){
+  const used = key => new Set(apps.map(a => a[key]));
+  const uc = used("category"), uk = used("kind");
+  fillSelect($("#fCat"),  CATEGORIES.filter(v => uc.has(v)), tCat,  "allCategories");
+  fillSelect($("#fKind"), KINDS.filter(v => uk.has(v)),      tKind, "allTypes");
+}
+
+function fillSelect(sel, values, label, allKey){
+  const cur = sel.value;
+  sel.innerHTML = (allKey ? `<option value="">${esc(t(allKey))}</option>` : "") +
+    values.map(v => `<option value="${esc(v)}">${esc(label(v))}</option>`).join("");
+  sel.value = cur;
+}
+
+function applyLang(){
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach(el => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach(el => {
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  });
+
+  fillFilters();
+  fillSelect($("#fStage"), STAGES,     tStage, "allStages");
+  fillSelect($("#f-category"), CATEGORIES, tCat);
+  fillSelect($("#f-kind"),     KINDS,      tKind);
+  fillSelect($("#f-stage"),    STAGES,     tStage);
+
+  $("#sources").innerHTML = ["srcDirect","srcReferral","srcFair","srcPortal",
+    "srcRecruiter","srcCold"].map(k => `<option>${esc(t(k))}</option>`).join("") +
+    `<option>LinkedIn</option>`;
+
+  $("#todayLabel").textContent = new Date()
+    .toLocaleDateString(locale(),{weekday:"long",day:"numeric",month:"long"});
+
+  render();
+}
+
+fillSelect($("#s-lang"), Object.keys(LANG_NAMES), k => LANG_NAMES[k]);
+$("#s-lang").value = lang;
+$("#s-lang").onchange = e => {
+  const next = e.target.value;
+  if(!I18N[next]) return;
+  lang = next;
+  try{ localStorage.setItem(LANG_KEY, lang); }catch(err){ /* private mode */ }
+  applyLang();
+};
+
+applyLang();
+
+if(cfg.url && cfg.token){
+  const pending = suggestions().length;
+  if(cfg.onload) syncGmail();
+  else setSyncState(pending ? t("pendingUpdates", pending) : "");
+}
+})();
+</script>
+</body>
+</html>

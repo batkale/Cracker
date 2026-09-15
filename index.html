@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cracker</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   /* Warm paper rather than white: this gets stared at for long stretches,
@@ -54,6 +51,12 @@
   /* Minimum comfortable hit area; raised to 44px on touch devices below */
   --tap:36px;
 
+  /* No downloaded fonts: the page makes no network request of any kind, works
+     offline, and renders in whatever the reader's OS already uses for its own
+     interface - which is the one typeface guaranteed to feel native to them. */
+  --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+
   --radius:12px; --radius-sm:8px;
   --shadow:0 1px 2px rgba(20,20,20,.06),0 4px 16px rgba(20,20,20,.05);
   --shadow-nav:0 -1px 0 var(--line), 0 -8px 24px rgba(20,20,20,.06);
@@ -82,7 +85,7 @@
 html,body{margin:0;padding:0}
 body{
   background:var(--bg); color:var(--text);
-  font-family:"Public Sans",ui-sans-serif,-apple-system,"Segoe UI",sans-serif;
+  font-family:var(--font-ui);
   font-size:var(--fs-base); line-height:var(--lh-body);
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   /* Stop iOS Safari inflating text in landscape */
@@ -90,17 +93,18 @@ body{
 }
 /* Dates, counts and money line up only with fixed-width figures. */
 /* Elapsed days and dates are values you compare down a column, so they get
-   a mono face rather than merely tabular figures. */
-.due, .stat .n, .count, .mono, .season-n{font-family:"IBM Plex Mono",ui-monospace,monospace}
+   the system's mono face rather than merely tabular figures. */
+.due, .stat .n, .count, .mono, .season-n{font-family:var(--font-mono)}
 table{font-variant-numeric:tabular-nums}
-h1,h2,.stat .n,.season-n{font-family:"Bricolage Grotesque",ui-sans-serif,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
-h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.015em}
+/* Without a display face, headings earn their difference through weight
+   and tracking rather than a change of voice. */
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.012em}
 .wrap{max-width:1240px;margin:0 auto;padding:20px 20px 80px}
 
 /* ---------- header ---------- */
 header.top{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)}
-header.top h1{font-size:var(--fs-xl);line-height:var(--lh-tight);letter-spacing:-.035em;font-weight:700}
+header.top h1{font-size:var(--fs-xl);line-height:var(--lh-tight);letter-spacing:-.022em;font-weight:700}
 header.top .sub{color:var(--muted);font-size:var(--fs-sm)}
 .wrap{padding-bottom:var(--space-10)}
 header.top .spacer{flex:1}
@@ -262,7 +266,7 @@ tr:has(.s-rejected) .co{color:var(--muted);font-weight:400}
   padding:var(--space-2) var(--space-3);font-size:var(--fs-sm);line-height:1.45}
 .sankey-tip h4{margin:0 0 5px;font-size:var(--fs-sm);font-weight:600;
   display:flex;gap:8px;align-items:baseline}
-.sankey-tip .n{margin-left:auto;font-family:"IBM Plex Mono",ui-monospace,monospace;
+.sankey-tip .n{margin-left:auto;font-family:var(--font-mono);
   font-size:var(--fs-xs);color:var(--muted)}
 .sankey-tip ul{margin:0;padding:0;list-style:none;display:grid;gap:2px}
 .sankey-tip li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -272,7 +276,7 @@ tr:has(.s-rejected) .co{color:var(--muted);font-weight:400}
 .co-row{display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr);
   gap:var(--space-3);align-items:baseline}
 .co-name{font-weight:500;display:flex;align-items:baseline;gap:6px;min-width:0}
-.co-n{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:var(--fs-xs);
+.co-n{font-family:var(--font-mono);font-size:var(--fs-xs);
   color:var(--muted)}
 .co-apps{display:grid;gap:var(--space-1);min-width:0}
 .co-app{display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap}
@@ -361,7 +365,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
 .season{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:var(--space-4);margin-bottom:var(--space-4);box-shadow:var(--shadow)}
 .season-top{display:flex;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-3)}
-.season-n{font-size:var(--fs-2xl);font-weight:700;line-height:1;letter-spacing:-.04em}
+.season-n{font-size:var(--fs-2xl);font-weight:700;line-height:1;letter-spacing:-.025em}
 .season-lbl{color:var(--muted);font-size:var(--fs-sm)}
 .season-settled{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 .season-track{display:flex;gap:3px;height:10px;margin-bottom:var(--space-3)}
@@ -369,7 +373,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
 .season-empty{flex:1;border:1px dashed var(--line);border-radius:3px}
 .season-key{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-4);
   font-size:var(--fs-sm);color:var(--muted)}
-.season-key b{color:var(--text);font-weight:600;font-family:"IBM Plex Mono",ui-monospace,monospace}
+.season-key b{color:var(--text);font-weight:600;font-family:var(--font-mono)}
 .season-key i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px}
 
 /* Companies holding several applications: the bar shows how many are live,
@@ -396,9 +400,17 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
   display:flex;gap:var(--space-3);align-items:flex-start;box-shadow:var(--shadow)}
 .needs h2{font-size:var(--fs-md);font-weight:600;margin-bottom:var(--space-2)}
 .needs ul{margin:0;padding:0;list-style:none;display:grid;gap:var(--space-1)}
-.needs li{font-size:var(--fs-md);display:flex;gap:var(--space-2);align-items:baseline;flex-wrap:wrap}
+/* One line per item. A full role title is context, not the point - the company
+   and the elapsed days are what you scan, so the title gives up its width
+   first rather than pushing them onto a fourth line. */
+.needs li{font-size:var(--fs-md);display:flex;gap:var(--space-2);
+  align-items:baseline;flex-wrap:nowrap;min-width:0}
+.needs .who{flex:none}
+.needs .what{color:var(--muted);min-width:0;flex:1 1 auto;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.needs .why{flex:none;margin-left:auto}
 .needs .who{font-weight:500}
-.needs .why{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:var(--fs-sm)}
+.needs .why{font-family:var(--font-mono);font-size:var(--fs-sm)}
 .why.over{color:var(--rust)} .why.soon{color:var(--amber)} .why.quiet{color:var(--muted)}
 .needs .more{color:var(--muted);font-size:var(--fs-sm)}
 
@@ -1593,7 +1605,7 @@ function renderBanner(){
       <h2>${esc(t("needsYou"))}</h2>
       <ul>${items.slice(0,5).map(it => `<li>
         <span class="who">${esc(it.a.company)}</span>
-        ${it.a.role ? `<span style="color:var(--muted)">${esc(it.a.role)}</span>` : ""}
+        ${it.a.role ? `<span class="what">${esc(it.a.role)}</span>` : ""}
         <span class="why ${it.kind}">${esc(why(it))}</span></li>`).join("")}
       </ul>
       ${items.length > 5 ? `<p class="more" style="margin:8px 0 0">${esc(t("moreItems", items.length-5))}</p>` : ""}

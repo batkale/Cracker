@@ -332,6 +332,11 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;paddi
 /* ---------- gmail sync ---------- */
 .sync-state{font-size:12px;color:var(--muted);white-space:nowrap}
 .sync-state.err{color:var(--danger)}
+/* Silent when saving works; only a problem earns space in the header. */
+.storage-state{font-size:var(--fs-sm)}
+.storage-state:empty{display:none}
+.storage-state.warn{color:var(--amber)}
+.storage-state.err{color:var(--rust)}
 .badge{display:inline-block;min-width:17px;padding:0 5px;border-radius:99px;background:var(--accent);
   color:var(--on-accent);font-size:11px;font-weight:600;text-align:center;margin-left:5px;vertical-align:1px}
 nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
@@ -539,6 +544,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
     <span class="sub" id="todayLabel"></span>
     <span class="spacer"></span>
     <span class="sync-state" id="syncState"></span>
+    <span class="storage-state" id="storageState" role="status"></span>
     <button class="btn ghost sm" id="syncBtn" data-i18n="sync">Sync Gmail</button>
     <button class="btn ghost sm icon" id="settingsBtn" title="Settings" aria-label="Settings" data-i18n-title="settings" data-i18n-aria="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     <button class="btn ghost sm" id="exportBtn" data-i18n="exportCsv">Export CSV</button>
@@ -662,6 +668,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
           <label for="s-days" data-i18n="lblDays">Show the last … days</label>
           <input id="s-days" type="number" min="1" max="3650" value="120">
           <span class="hint" id="s-days-hint"></span>
+          <span class="hint" id="s-storage" style="display:block;margin-top:6px"></span>
         </div>
         <div class="field full">
           <details>
@@ -831,6 +838,12 @@ en:{
   updatesToReview:n => `${n} update${n===1?"":"s"} to review`,
   lastSync:s => `last sync: ${s}`, never:"never",
   dismissAll:"Dismiss all", syncNow:"Sync now", dismiss:"Dismiss",
+  diskSavedTo:"Applications are saved to data/applications.json",
+  diskBrowserOnly:"Applications are saved in this browser only. Open with python -m agent --serve to keep them on disk.",
+  diskBrowserOnlyShort:"Not saving to disk",
+  diskConflict:"Changed in another tab — showing the saved version",
+  diskFailed:"Could not save to disk",
+  diskUnreachable:"Could not reach the server — changes are in this browser only",
   healthTitle:(when, ago) => `Gmail hasn't been read since ${when} (${ago}).`,
   healthStale:"Google revokes the sign-in every 7 days while the app is in Testing mode — that is the likely cause, and what you see below may be out of date.",
   healthExpired:"At this age the sign-in has almost certainly expired, so nothing new is coming in.",
@@ -960,6 +973,12 @@ tr:{
   updatesToReview:n => `İncelenecek ${n} güncelleme`,
   lastSync:s => `son eşitleme: ${s}`, never:"hiç",
   dismissAll:"Tümünü kapat", syncNow:"Şimdi eşitle", dismiss:"Kapat",
+  diskSavedTo:"Başvurular data/applications.json dosyasına kaydediliyor",
+  diskBrowserOnly:"Başvurular yalnızca bu tarayıcıda saklanıyor. Diske kaydetmek için python -m agent --serve ile açın.",
+  diskBrowserOnlyShort:"Diske kaydedilmiyor",
+  diskConflict:"Başka bir sekmede değişti — kayıtlı sürüm gösteriliyor",
+  diskFailed:"Diske kaydedilemedi",
+  diskUnreachable:"Sunucuya ulaşılamadı — değişiklikler yalnızca bu tarayıcıda",
   healthTitle:(when, ago) => `Gmail ${when} tarihinden beri okunmadı (${ago}).`,
   healthStale:"Uygulama Test modundayken Google oturumu 7 günde bir iptal eder — muhtemel neden bu; aşağıdakiler güncel olmayabilir.",
   healthExpired:"Bu süreden sonra oturum neredeyse kesin olarak sona ermiştir; yeni e-posta gelmiyor.",
@@ -1047,6 +1066,9 @@ const QUIET_DAYS = 21;
 const CLOSED = new Set(["Offer","Rejected/Withdrawn"]);
 
 let apps = load();
+// Where applications are persisted. "pending" until the first disk read
+// settles, so nothing is written to disk before we know what is already there.
+let disk = { mode:"pending", revision:0, savedAt:"", error:"" };
 let view = "table";
 let sort = { key:"deadline", dir:1 };
 let editingId = null;
@@ -1062,7 +1084,8 @@ function load(){
 }
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(apps)); }
-  catch(e){ alert("Could not save to local storage: " + e.message); }
+  catch(e){ console.warn("browser cache write failed", e); }
+  scheduleDiskSave();
 }
 function normalize(a){
   return {
@@ -2076,6 +2099,7 @@ function readJSON(k, fallback){
 }
 function writeJSON(k, v){
   try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ console.warn("save failed", k, e); }
+  if(k === SEEN_KEY) scheduleDiskSave();
 }
 
 /* ---------- name normalisation ---------- */
@@ -2539,6 +2563,175 @@ async function fetchLocalEvents(){
   return res.json();
 }
 
+/* ---------- applications on disk ----------
+   Applications used to exist only in this browser's storage: clear site data,
+   switch browsers, or open it anywhere else and the tracker was empty. When the
+   page is served by `python -m agent --serve`, data/applications.json is now
+   the source of truth and the browser copy is only a fast first paint.
+
+   Writes carry the revision they were based on, so a second tab that saved in
+   the meantime is taken rather than overwritten. */
+const DISK_API = "api/applications";
+// The disk revision this browser last adopted or wrote. Absent means this
+// browser has never met the disk store, which is the one moment its own data
+// must be merged in rather than replaced.
+const DISK_REV_KEY = "app-tracker.diskRev";
+let diskTimer = null, diskInFlight = false, diskDirty = false;
+
+function rememberRevision(rev){
+  try{ localStorage.setItem(DISK_REV_KEY, String(rev)); }catch(e){}
+}
+function knownRevision(){
+  try{ const v = localStorage.getItem(DISK_REV_KEY); return v === null ? null : Number(v); }
+  catch(e){ return null; }
+}
+
+/**
+ * Union two sets of applications without losing either side's work.
+ *
+ * Matched by company and role rather than id: two browsers that each synced
+ * from Gmail create the same application under different random ids, and
+ * matching on id would show every one of them twice. Where both have it, the
+ * more recently edited copy wins. Reviewed-mail markers are unioned, so
+ * anything dismissed or deleted on either side stays that way.
+ */
+function mergeApplications(localApps, localSeen, diskApps, diskSeen){
+  const key = a => compact(a.company) + "|" + compact(a.role);
+  const byKey = new Map();
+  for(const a of diskApps) byKey.set(key(a), a);
+  for(const a of localApps){
+    const theirs = byKey.get(key(a));
+    if(!theirs || (a.updated || 0) > (theirs.updated || 0)) byKey.set(key(a), a);
+  }
+  return { apps: [...byKey.values()], seen: { ...diskSeen, ...localSeen } };
+}
+
+/** Mirror the current state into the browser without scheduling a disk write. */
+function cacheLocally(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify(apps));
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+  }catch(e){ /* private mode: disk still holds it */ }
+}
+
+function adoptStore(store){
+  apps = (store.apps || []).map(normalize);
+  seen = store.seen || {};
+  disk.revision = store.revision || 0;
+  disk.savedAt = store.savedAt || disk.savedAt;
+  rememberRevision(disk.revision);
+  cacheLocally();
+}
+
+async function diskLoad(){
+  if(location.protocol === "file:"){ disk.mode = "browser"; return renderStorage(); }
+
+  let res;
+  try{ res = await fetch(DISK_API, { cache:"no-store" }); }
+  catch(e){ disk.mode = "browser"; return renderStorage(); }
+
+  // A plain static server has no API. That is a supported way to open the page,
+  // it just can't save to disk, and it should say so rather than pretend.
+  if(res.status === 404 || res.status === 405){ disk.mode = "browser"; return renderStorage(); }
+  if(!res.ok){
+    const body = await res.json().catch(() => ({}));
+    disk.mode = "error";
+    disk.error = body.error || t("diskFailed");
+    return renderStorage();
+  }
+
+  const store = await res.json();
+  disk.mode = "disk";
+  if(store.exists){
+    const firstContact = knownRevision() === null;
+    if(firstContact && (apps.length || Object.keys(seen).length)){
+      // This browser has data the disk has never seen. Replacing it would
+      // silently discard whatever was typed here; merge instead, then save.
+      const merged = mergeApplications(apps, seen, store.apps || [], store.seen || {});
+      apps = merged.apps.map(normalize);
+      seen = merged.seen;
+      disk.revision = store.revision;
+      cacheLocally();
+      render();
+      await diskSave();
+    }else{
+      adoptStore(store);
+      render();
+    }
+  }else{
+    disk.revision = 0;
+    // First run against a server: carry over whatever this browser already had,
+    // instead of greeting you with an empty tracker.
+    if(apps.length || Object.keys(seen).length) await diskSave();
+  }
+  renderStorage();
+}
+
+function scheduleDiskSave(){
+  if(disk.mode !== "disk") return;
+  diskDirty = true;
+  clearTimeout(diskTimer);
+  diskTimer = setTimeout(diskSave, 400);   // a drag or an import is many writes; send one
+}
+
+async function diskSave(){
+  if(diskInFlight){ diskDirty = true; return; }
+  diskInFlight = true;
+  diskDirty = false;
+  try{
+    const res = await fetch(DISK_API, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: disk.revision, apps, seen })
+    });
+    const body = await res.json().catch(() => ({}));
+    if(res.ok){
+      disk.revision = body.revision;
+      disk.savedAt = body.savedAt;
+      disk.error = "";
+      rememberRevision(disk.revision);
+    }else if(res.status === 409){
+      // Another tab got there first. Its version is on disk; show that rather
+      // than overwrite it with ours.
+      adoptStore(body);
+      disk.error = t("diskConflict");
+      render();
+    }else{
+      disk.error = body.error || t("diskFailed");
+    }
+  }catch(e){
+    disk.error = t("diskUnreachable");
+  }finally{
+    diskInFlight = false;
+    renderStorage();
+    if(diskDirty) scheduleDiskSave();
+  }
+}
+
+function renderStorage(){
+  const head = $("#storageState"), detail = $("#s-storage");
+  let headText = "", headClass = "storage-state", detailText = "";
+
+  if(disk.mode === "disk"){
+    detailText = t("diskSavedTo") + (disk.savedAt
+      ? " · " + new Date(disk.savedAt).toLocaleTimeString(locale(), { hour:"2-digit", minute:"2-digit" })
+      : "");
+    if(disk.error){ headText = disk.error; headClass += " err"; }
+  }else if(disk.mode === "browser"){
+    detailText = t("diskBrowserOnly");
+    // Over http but without the API means a plain static server - worth
+    // flagging, since everything typed here can be lost. file:// already has
+    // its own louder warning about sync.
+    if(location.protocol !== "file:"){ headText = t("diskBrowserOnlyShort"); headClass += " warn"; }
+  }else if(disk.mode === "error"){
+    headText = disk.error; headClass += " err";
+    detailText = disk.error;
+  }
+
+  if(head){ head.textContent = headText; head.className = headClass; head.title = detailText; }
+  if(detail) detail.textContent = detailText;
+}
+
 /* ---------- is the agent still reading Gmail? ----------
    The scheduled task runs windowless, and in Testing mode Google revokes its
    sign-in every seven days. When that happens nothing errors anywhere you can
@@ -2969,6 +3162,7 @@ if(syncConfigured){
 // stalled agent before you trust stale data, without having to click anything.
 if(!cfg.onload) checkAgentHealth();
 renderHealth();
+diskLoad();
 })();
 </script>
 </body>

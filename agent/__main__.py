@@ -6,20 +6,18 @@ CLI entrypoint.
     python -m agent --query label:jobs restrict to a label
     python -m agent --preview          classify and print, write nothing
     python -m agent --serve            sync, then serve the tracker on :8732
+    python -m agent --serve --no-sync  just open the tracker, leave Gmail alone
 """
 
 from __future__ import annotations
 
 import argparse
-import functools
-import http.server
 import socket
-import socketserver
 import sys
 import webbrowser
 from pathlib import Path
 
-from . import sync
+from . import server, sync
 
 ROOT = Path(__file__).resolve().parent.parent
 PORT = 8732
@@ -81,6 +79,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="print what was found without writing events.json")
     p.add_argument("--serve", action="store_true",
                    help=f"after syncing, serve the tracker on localhost:{PORT}")
+    p.add_argument("--no-sync", action="store_true",
+                   help="with --serve, open the tracker without reading Gmail")
     p.add_argument("-q", "--quiet", action="store_true")
     args = p.parse_args(argv)
 
@@ -103,8 +103,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"... and {len(events) - 40} more")
         return 0
 
-    sync.run(args.days, args.max_messages, args.query,
-             verbose=not args.quiet, prefilter=args.prefilter)
+    if not (args.serve and args.no_sync):
+        sync.run(args.days, args.max_messages, args.query,
+                 verbose=not args.quiet, prefilter=args.prefilter)
 
     if args.serve:
         url = f"http://127.0.0.1:{PORT}/index.html"
@@ -119,10 +120,9 @@ def main(argv: list[str] | None = None) -> int:
             webbrowser.open(url)
             return 0
 
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler,
-                                    directory=str(ROOT))
-        with socketserver.TCPServer(("127.0.0.1", PORT), handler) as httpd:
+        with server.make_server(PORT) as httpd:
             print(f"\nTracker : {url}   (ctrl-c to stop)")
+            print(f"Saves to: {server.APPS_FILE.relative_to(ROOT)}")
             webbrowser.open(url)
             try:
                 httpd.serve_forever()

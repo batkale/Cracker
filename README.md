@@ -80,6 +80,12 @@ The first run opens a browser once. Google warns the app is unverified — that 
 expected, it is your own unpublished client. After that the tracker opens at
 <http://127.0.0.1:8732>.
 
+To open the tracker without reading Gmail, add `--no-sync`.
+
+**Always open it this way**, not by double-clicking `index.html`. The server is
+what saves your applications to disk; opened as a file, or from any other static
+server, they live only in that browser and the header says *Not saving to disk*.
+
 ### 4. Keep it running
 
 **Windows** — registers a scheduled task every two hours:
@@ -112,14 +118,31 @@ it understood before writing anything.
 | `agent/rules.py` | Phrase lists and classifiers. The file worth tuning. |
 | `agent/gmail.py` | OAuth and message fetching, read-only scope, with backoff. |
 | `agent/sync.py` | Orchestration and the message cache. |
+| `agent/server.py` | Local server: the page, and saving applications to disk. |
 | `schedule.ps1` | Registers the agent as a Windows scheduled task. |
 | `gmail-sync.gs` | Older Apps Script route, kept as an alternative. |
+
+## Your data
+
+Applications are saved to `data/applications.json`, with the previous version
+kept as `data/applications.backup.json`. Writes are atomic, so a crash mid-save
+leaves the last good copy intact. Clearing your browser loses nothing.
+
+The first time a browser opens a tracker that already has data on disk, the two
+are **merged** rather than one replacing the other — matched by company and role,
+newest edit winning — so nothing typed in either place is lost. After that, disk
+is the source of truth. If two tabs save at once, the second is shown the first
+one's version instead of overwriting it.
 
 ## Privacy
 
 `credentials.json`, `token.json` and `data/` are gitignored and must stay that
 way — the first two together can read your mail, and `data/` holds cached message
-text. Applications themselves live in your browser's local storage.
+text and your applications.
+
+The local server serves only the page and the agent's output. It refuses requests
+addressed to any other host name, which blocks DNS-rebinding attacks from websites
+you visit, and it refuses writes from any other origin.
 
 The Gmail scope requested is `gmail.readonly`. The agent cannot send, delete,
 archive or label anything.

@@ -394,6 +394,26 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
   .season-co-roles{gap:2px var(--space-3)}
 }
 
+/* ================= agent health ================= */
+/* Sits above "Needs you" because it qualifies everything below it: if the
+   agent has stopped, the rest of the page is describing last week. */
+.health{background:var(--amber-soft);border:1px solid var(--line);border-left:3px solid var(--amber);
+  border-radius:var(--radius);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);
+  display:flex;gap:var(--space-3);align-items:flex-start}
+.health.expired{background:var(--rust-soft);border-left-color:var(--rust)}
+.health-body{flex:1;min-width:0}
+.health h2{font-size:var(--fs-md);font-weight:600;margin-bottom:var(--space-1)}
+.health p{margin:0 0 var(--space-1);font-size:var(--fs-sm);color:var(--text)}
+.health-fix{margin-top:var(--space-2) !important}
+.health code{font-family:var(--font-mono);font-size:var(--fs-sm);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius-sm);padding:1px 6px;
+  white-space:nowrap;display:inline-block;max-width:100%;overflow-x:auto;vertical-align:middle}
+.health .x{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+  width:var(--tap);height:var(--tap);flex:none;cursor:pointer;border:0;background:transparent;
+  color:var(--muted);border-radius:var(--radius-sm)}
+.health .x:hover{color:var(--text)}
+.health .x svg{width:18px;height:18px}
+
 /* ================= needs you ================= */
 .needs{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent-edge,var(--amber));
   border-radius:var(--radius);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);
@@ -528,6 +548,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
     <button class="btn primary" id="addBtn" aria-label="New application" data-i18n-aria="newApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label" data-i18n="newApp">New application</span> <kbd>N</kbd></button>
   </header>
 
+  <div id="healthBanner"></div>
   <div id="dueBanner"></div>
   <section id="seasonBar"></section>
 
@@ -809,7 +830,13 @@ en:{
   openSettingsBtn:"Open settings",
   updatesToReview:n => `${n} update${n===1?"":"s"} to review`,
   lastSync:s => `last sync: ${s}`, never:"never",
-  dismissAll:"Dismiss all", syncNow:"Sync now",
+  dismissAll:"Dismiss all", syncNow:"Sync now", dismiss:"Dismiss",
+  healthTitle:(when, ago) => `Gmail hasn't been read since ${when} (${ago}).`,
+  healthStale:"Google revokes the sign-in every 7 days while the app is in Testing mode — that is the likely cause, and what you see below may be out of date.",
+  healthExpired:"At this age the sign-in has almost certainly expired, so nothing new is coming in.",
+  healthFix:"Run this once in the Cracker folder and sign in again:",
+  agoHours:n => `${n} hour${n === 1 ? "" : "s"} ago`,
+  agoDays:n => `${n} day${n === 1 ? "" : "s"} ago`,
   nothingNewTitle:"Nothing new",
   nothingNewBody:"No unreviewed Gmail updates matched your applications.",
   confirmDismissAll:n => `Dismiss all ${n} suggestion(s)? They won't come back.`,
@@ -932,7 +959,13 @@ tr:{
   openSettingsBtn:"Ayarları aç",
   updatesToReview:n => `İncelenecek ${n} güncelleme`,
   lastSync:s => `son eşitleme: ${s}`, never:"hiç",
-  dismissAll:"Tümünü kapat", syncNow:"Şimdi eşitle",
+  dismissAll:"Tümünü kapat", syncNow:"Şimdi eşitle", dismiss:"Kapat",
+  healthTitle:(when, ago) => `Gmail ${when} tarihinden beri okunmadı (${ago}).`,
+  healthStale:"Uygulama Test modundayken Google oturumu 7 günde bir iptal eder — muhtemel neden bu; aşağıdakiler güncel olmayabilir.",
+  healthExpired:"Bu süreden sonra oturum neredeyse kesin olarak sona ermiştir; yeni e-posta gelmiyor.",
+  healthFix:"Cracker klasöründe bunu bir kez çalıştırıp yeniden giriş yapın:",
+  agoHours:n => `${n} saat önce`,
+  agoDays:n => `${n} gün önce`,
   nothingNewTitle:"Yeni bir şey yok",
   nothingNewBody:"Başvurularınızla eşleşen incelenmemiş Gmail güncellemesi yok.",
   confirmDismissAll:n => `${n} önerinin tümü kapatılsın mı? Geri gelmezler.`,
@@ -1678,6 +1711,7 @@ function renderSeason(rows){
 function render(){
   fillFilters();          // before filtered(), which reads these selects
   const rows = filtered();
+  renderHealth();
   renderBanner();
   renderSeason(rows);
 
@@ -2505,6 +2539,68 @@ async function fetchLocalEvents(){
   return res.json();
 }
 
+/* ---------- is the agent still reading Gmail? ----------
+   The scheduled task runs windowless, and in Testing mode Google revokes its
+   sign-in every seven days. When that happens nothing errors anywhere you can
+   see: the task just stops, and the tracker goes on showing old mail as if it
+   were current. events.json records when the agent last ran, so compare. */
+const AGENT_RUN_KEY = "app-tracker.agentRun";
+const STALE_HOURS = 24;        // a missed night or a closed laptop is not alarming
+const EXPIRED_HOURS = 72;      // three days is well past any sleep; sign-in is gone
+let agentLastRun = readJSON(AGENT_RUN_KEY, "");
+let healthDismissed = false;
+
+function noteAgentRun(generated){
+  if(!generated || isNaN(new Date(generated))) return;
+  agentLastRun = generated;
+  writeJSON(AGENT_RUN_KEY, agentLastRun);
+}
+
+/** Read the agent's timestamp without applying any mail. Silent on failure:
+    a missing file or server already has its own message when you sync. */
+async function checkAgentHealth(){
+  if(!isLocalMode() || location.protocol === "file:") return;
+  try{
+    const data = await fetchLocalEvents();
+    noteAgentRun(data && data.generated);
+  }catch(err){ /* reported by sync, not here */ }
+  renderHealth();
+}
+
+function agoText(hours){
+  if(hours < 48) return t("agoHours", Math.round(hours));
+  return t("agoDays", Math.floor(hours / 24));
+}
+
+function renderHealth(){
+  const el = $("#healthBanner");
+  if(!el) return;
+  if(healthDismissed || !isLocalMode() || !agentLastRun){ el.innerHTML = ""; return; }
+
+  const hours = (Date.now() - new Date(agentLastRun)) / 36e5;
+  if(hours < STALE_HOURS){ el.innerHTML = ""; return; }
+
+  const expired = hours >= EXPIRED_HOURS;
+  const platform = (navigator.userAgentData && navigator.userAgentData.platform)
+                   || navigator.platform || "";
+  const cmd = /win/i.test(platform) ? ".venv\\Scripts\\python -m agent"
+                                    : ".venv/bin/python -m agent";
+  const when = new Date(agentLastRun).toLocaleDateString(locale(),
+                 { weekday:"long", day:"numeric", month:"long" });
+
+  el.innerHTML = `<div class="health${expired ? " expired" : ""}" role="status">
+    <div class="health-body">
+      <h2>${esc(t("healthTitle", when, agoText(hours)))}</h2>
+      <p>${esc(t(expired ? "healthExpired" : "healthStale"))}</p>
+      <p class="health-fix">${esc(t("healthFix"))} <code>${esc(cmd)}</code></p>
+    </div>
+    <button class="x" id="dismissHealth" title="${esc(t("dismiss"))}" aria-label="${esc(t("dismiss"))}"
+      ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>`;
+  $("#dismissHealth").onclick = () => { healthDismissed = true; renderHealth(); };
+}
+
 function setSyncState(msg, isErr){
   const el = $("#syncState");
   el.textContent = msg || "";
@@ -2533,6 +2629,7 @@ async function syncGmail(){
         ? t("errToken") : (data && data.error) || t("errUnexpected"));
     }
     agentWindow = Number(data.lookbackDays) || 0;
+    noteAgentRun(data.generated);
     const all = Array.isArray(data.events) ? data.events : [];
     // The days setting now filters what the tracker considers. Narrowing works
     // instantly; widening past what the agent actually scanned can't invent
@@ -2860,11 +2957,18 @@ $("#s-lang").onchange = e => {
 
 applyLang();
 
-if(cfg.url && cfg.token){
+// Local agent mode has no URL or token, so gating startup on them meant
+// "Sync automatically on page load" silently did nothing in the default mode.
+const syncConfigured = isLocalMode() || (cfg.url && cfg.token);
+if(syncConfigured){
   const pending = suggestions().length;
   if(cfg.onload) syncGmail();
   else setSyncState(pending ? t("pendingUpdates", pending) : "");
 }
+// Checked on every load, not only on sync: the whole point is to notice a
+// stalled agent before you trust stale data, without having to click anything.
+if(!cfg.onload) checkAgentHealth();
+renderHealth();
 })();
 </script>
 </body>

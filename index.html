@@ -2066,9 +2066,10 @@ function domainRoot(domain){
 /* Words that appear in nearly every graduate job title and so distinguish
    nothing. Without stripping these, "Software Engineer Intern" and "Data
    Science Intern" look 33% alike on the strength of "intern". */
-const ROLE_NOISE = new Set(["intern","interns","internship","programme","program",
-  "scheme","role","position","summer","spring","winter","student","graduate",
-  "placement","start","the","and","for","with","new"]);
+const ROLE_NOISE = new Set(["intern","interns","internship","internships",
+  "programme","program","scheme","role","position","summer","spring","winter",
+  "student","graduate","placement","placements","industrial","start",
+  "the","and","for","with","new"]);
 
 function roleWords(s){
   return [...new Set(normName(s).split(" ")
@@ -2147,7 +2148,7 @@ function matchApp(ev){
   return best;
 }
 
-const JUNK_SRC = "\\b(careers?|recruit(ing|ment)?|talent|hiring|jobs?|no[-\\s]?reply|noreply|team|hr|people|university|assessments?|applications?)\\b";
+const JUNK_SRC = "\\b(careers?|recruit(ing|ment)?|talent|acquisition|hiring|jobs?|no[-\\s]?reply|noreply|team|hr|people|university|assessments?|applications?)\\b";
 const JUNK_WORDS = new RegExp(JUNK_SRC, "gi");   // for replace()
 const HAS_JUNK   = new RegExp(JUNK_SRC, "i");    // for test() — no lastIndex to carry
 const titleCase = s => s.replace(/\s+/g," ").trim()
@@ -2183,6 +2184,56 @@ function spacedFrom(root, ...texts){
   return "";
 }
 
+/* The subject's opening clause is only a company when it reads like one.
+   "Optiver - interview invitation" leads with the employer; "FOR ACTION:
+   Online testing" and "Technical Sales Engineering Intern" lead with the
+   subject and the job, and both were becoming companies. */
+const LEAD_IS_ROLE = /\b(intern|interns|internship|engineer|engineering|analyst|scientist|developer|manager|consultant|trader|trading|placement|placements|graduate|programme|program|scheme|testing|assessment|application|action|online)\b/i;
+
+function companyFromSubjectLead(subject){
+  const lead = String(subject || "").split(/\s[-–—|:]\s/)[0].trim();
+  if(!lead || lead.length > 40) return "";
+  if(lead.includes(":")) return "";                    // "FOR ACTION: ..."
+  if(lead.split(/\s+/).length > 4) return "";          // a sentence, not a name
+  if(LEAD_IS_ROLE.test(lead) || HAS_JUNK.test(lead)) return "";
+  return lead;
+}
+
+/* Tooling, never an employer. If the best name we can find is one of these,
+   we have found the vendor's domain rather than who you applied to. */
+const VENDOR_NAME = /^(successfactors|greenhouse|myworkday|workday|lever|smartrecruiters|icims|taleo|avature|ashby|jobvite|workable|teamtailor|brassring|oracle|csod|oleeo|tribepad|panpowered|modernhire|hackerrank|codility|hirevue|codesignal|tal)$/i;
+
+/**
+ * The employer named on another message about the same specific role.
+ *
+ * Mercedes sends through two vendors: the assessment mails name the team but
+ * are only weak matches, and the confident "thank you for your application"
+ * mails come from successfactors.com and name nobody. Neither message can be
+ * identified alone; the role title appears verbatim in both.
+ *
+ * Only long titles are safe to match on. "Software Engineer" is every firm in
+ * the inbox, so anything under three distinctive words refuses to borrow.
+ */
+function companyFromSiblingRole(ev){
+  const mine = roleWords(ev.roleHint);
+  if(mine.length < 2) return "";
+
+  for(const e of events){
+    if(!e || e === ev || !e.companyHint || !e.roleHint) continue;
+    const theirs = roleWords(e.roleHint);
+    const shared = mine.filter(w => theirs.includes(w)).length;
+    if(!shared) continue;
+
+    // Three distinctive words is identifying on its own. Two is not - plenty
+    // of firms hire a "Software Engineer" - so it also has to be the same
+    // fortnight, which the vendor mail for one application always is and two
+    // unrelated applications rarely are.
+    const apart = Math.abs(new Date(e.date) - new Date(ev.date)) / 864e5;
+    if(shared >= 3 || (shared >= 2 && apart <= 14)) return e.companyHint;
+  }
+  return "";
+}
+
 function guessCompany(ev){
   // A per-tenant ATS host names the employer in its own subdomain
   // (morganstanley.tal.net); the agent passes that through. Strongest signal
@@ -2196,6 +2247,13 @@ function guessCompany(ev){
   const name = raw.replace(JUNK_WORDS,"").replace(/[|·–-]+/g," ").trim();
   const root = domainRoot(ev.domain);
 
+  // Vendor sender, no tenant, nothing usable in the display name: the domain
+  // would give us the vendor. Ask the rest of the mailbox first.
+  if(name.length < 2 || VENDOR_NAME.test(root)){
+    const borrowed = companyFromSiblingRole(ev);
+    if(borrowed) return titleCase(borrowed);
+  }
+
   // Most employers send ATS mail under their own display name ("Citadel" via
   // myworkday.com), so the name is the best signal even when isATS. Only when
   // the vendor's own name shows through is the subject better — those lead
@@ -2207,8 +2265,8 @@ function guessCompany(ev){
                     .replace(/[^\w&\s'-]+/g, " ").trim();
     if(rest.length >= 3 && !ATS_VENDOR_NAME.test(rest)) return titleCase(rest);
 
-    const lead = String(ev.subject || "").split(/\s[-–—|:]\s/)[0].trim();
-    if(lead && lead.length <= 40 && !HAS_JUNK.test(lead)) return titleCase(lead);
+    const lead = companyFromSubjectLead(ev.subject);
+    if(lead) return titleCase(lead);
   }
 
   // On a company's own domain the domain is authoritative. A display name
@@ -2380,6 +2438,9 @@ function autoApply(){
     // recognise a company we just added, leave the mail for review instead of
     // adding it a second time.
     const name = compact(s.guess);
+    // A row called "Successfactors" is noise, not a record. If nothing names
+    // the employer, leave it for review rather than inventing one.
+    if(VENDOR_NAME.test(name)){ declined.add(s.ev.id); continue; }
     if(name.length < 2 || apps.some(a => compact(a.company) === name
                                         && sameRole(a.role, s.ev.roleHint))){
       declined.add(s.ev.id);

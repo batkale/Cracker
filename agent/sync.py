@@ -157,8 +157,10 @@ def _classify_record(mid: str, rec: dict | None) -> Event | None:
         domain=rec["domain"],
         isATS=is_ats(rec["domain"]),
         companyHint=(ats_tenant(rec["domain"])
-                     or (company_from_subject(rec["subject"])
-                         if is_ats(rec["domain"]) else "")),
+                     # Pass the body too: assessment vendors name the
+                     # employer only in their opening line, and they are not
+                     # always on the ATS list, so do not gate on is_ats.
+                     or company_from_subject(rec["subject"], rec["text"])),
         kindHint=detect_kind(hay),
         roleHint=role,
         categoryHint=detect_category(role),

@@ -289,7 +289,7 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
 
 def _clean_role(raw: str) -> str:
     role = " ".join(raw.split()).strip(" -–—:;,.|")
-    role = re.sub(r"^(the|a|an)\s+", "", role, flags=re.I)
+    role = re.sub(r"^(the|a|an|of|for)\s+", "", role, flags=re.I)
     # "Citadel's Software Engineer - Intern" -> the company already labels the
     # row, so the possessive is noise inside the job title.
     role = re.sub(r"^[A-Z][\w&.-]*'s\s+", "", role)
@@ -434,10 +434,18 @@ _SUBJECT_COMPANY = [re.compile(p) for p in (
     # The keyword matches case-insensitively ("Applying" in a title-case
     # subject) but the captured name must stay capitalised, or it swallows
     # the rest of the sentence.
-    rf"(?:[Aa]pplying|[Aa]pplication|[Aa]pplied)\s+(?:to|for|with)\s+(?:the\s+)?({_NAME})",
+        # Deliberately not "for": you apply *to* a company but *for* a role, and
+    # "your application for Technical Sales Engineering Intern" was filing the
+    # job title as the employer.
+    rf"(?:[Aa]pplying|[Aa]pplication|[Aa]pplied)\s+(?:to|with)\s+(?:the\s+)?({_NAME})",
 )]
 
 # Never report the tooling as the employer: "...assessment at HackerRank".
+_LOOKS_LIKE_ROLE = re.compile(
+    r"\b(intern|interns|internship|engineer|engineering|analyst|scientist|"
+    r"developer|manager|consultant|trader|trading|placement|placements|"
+    r"graduate|programme|program|scheme|associate|apprentice)\b", re.I)
+
 _NOT_EMPLOYERS = {
     "hackerrank", "codility", "codesignal", "hirevue", "workday", "myworkday",
     "greenhouse", "lever", "smartrecruiters", "icims", "taleo", "oracle",
@@ -445,10 +453,18 @@ _NOT_EMPLOYERS = {
 }
 
 
-def company_from_subject(subject: str) -> str:
-    """Employer named in the subject, for mail sent through an ATS host."""
+def company_from_subject(subject: str, text: str = "") -> str:
+    """
+    Employer named in the mail, for messages sent through a vendor.
+
+    The subject is tried first because it is terser and less likely to name
+    some other company in passing. The body is a genuine fallback: assessment
+    vendors send from their own domain with a generic display name, and say
+    who they are testing for only in the opening line - "your application to
+    the Mercedes-AMG PETRONAS Formula One Team for the ...".
+    """
     for pattern in _SUBJECT_COMPANY:
-        match = pattern.search(subject or "")
+        match = pattern.search(subject or "") or pattern.search((text or "")[:400])
         if not match:
             continue
         name = " ".join(match.group(1).split()).strip(" .,-")
@@ -461,6 +477,8 @@ def company_from_subject(subject: str) -> str:
                             "internship", "graduate", "student"}:
             continue
         if name.lower().replace(" ", "") in _NOT_EMPLOYERS:
+            continue
+        if _LOOKS_LIKE_ROLE.search(name):
             continue
         return name
     return ""

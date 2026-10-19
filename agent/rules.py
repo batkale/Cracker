@@ -114,6 +114,45 @@ def ats_tenant(domain: str) -> str:
                 return label
     return ""
 
+# Some ATS tenants are named in the address local part rather than a
+# subdomain: lseg@myworkday.com is London Stock Exchange Group. The domain
+# alone says only "Workday", so without this the employer is invisible and the
+# sender reads as the robot that sent it ("WorkdaySystemDoNotReply").
+ADDRESS_TENANT_HOSTS: list[str] = [
+    "myworkday.com", "icims.com", "successfactors.com", "avature.net",
+    "csod.com", "taleo.net", "oleeo.com",
+]
+
+# Local parts that name the machinery rather than the employer. Split by how
+# they have to be matched: robot names are run together into one token
+# ("WorkdaySystemDoNotReply"), so they match as a prefix, while short generic
+# words must match exactly or "hr" would swallow a real name.
+_GENERIC_PREFIXES = (
+    "noreply", "donotreply", "donotrespond", "notification", "workday",
+    "system", "mailer", "postmaster", "automated", "autoreply", "alert",
+)
+_GENERIC_LOCALS = {
+    "info", "careers", "career", "recruiting", "recruitment", "hr", "talent",
+    "jobs", "admin", "support", "contact", "hello", "mail", "email",
+}
+
+
+def address_tenant(address: str, domain: str) -> str:
+    """The employer's label from the local part of an ATS address, or ""."""
+    address = (address or "").lower().strip()
+    domain = (domain or "").lower()
+    if "@" not in address:
+        return ""
+    if not any(domain == h or domain.endswith("." + h) for h in ADDRESS_TENANT_HOSTS):
+        return ""
+    local = re.sub(r"[^a-z0-9]+", "", address.split("@", 1)[0])
+    if len(local) < 2 or local in _GENERIC_LOCALS:
+        return ""
+    if local.startswith(_GENERIC_PREFIXES):
+        return ""
+    return local
+
+
 # Job boards, aggregators and newsletters. These talk about roles constantly,
 # so they sail through RELEVANCE and then trip the weak rules, but they are
 # never the counterparty to an application - they advertise openings rather
@@ -156,36 +195,58 @@ RELEVANCE: list[str] = [
 # A separate axis from stage: what kind of thing was applied for. Ordered most
 # specific first, because recruiting mail happily mentions several at once
 # ("our graduate programmes and summer internships") and the first hit wins.
+# Phrases are REGEX fragments, not literals. They used to be run through
+# re.escape inside \b...\b, which quietly made every rule exact-singular:
+# "Industrial Placements" (as Mercedes and half the F1 teams write it) failed
+# to match "industrial placement", because the \b after "placement" cannot sit
+# before an "s". The same anchoring missed "Summer 2027 Analyst", since the
+# year sits inside the phrase. Both landed in "Other".
+#
+# Order is significant - first match wins - and the UK distinction matters
+# more than the wording suggests: a "year-long internship" is a placement, not
+# a summer internship, so Industrial Placement is tested before Internship.
 KIND_RULES: list[tuple[str, list[str]]] = [
     ("Hackathon", [
-        "hackathon", "hack day", "datathon", "chessathon", "codeathon",
+        "hackathons?", "hack day", "datathon", "chessathon", "codeathon",
         "case competition", "coding competition", "programming contest",
     ]),
     ("Industrial Placement", [
-        "industrial placement", "placement year", "year in industry",
-        "sandwich placement", "sandwich year", "12 month placement",
-        "12-month placement", "industrial year", "placement scheme",
+        r"industrial placements?",
+        r"placement year", r"year in industry",
+        r"sandwich (?:placement|year)",
+        r"1[0-4][\s-]month (?:placement|internship|programme|program)",
+        r"industrial year", r"industrial trainee",
+        # "Team Placement Programme", "Placement opportunity"
+        r"placement (?:scheme|programme|program|opportunit(?:y|ies))",
+        # A year-long internship is a placement in all but name.
+        r"year[\s-]?long (?:internship|placement)",
+        r"(?:12|13|14)[\s-]?months? (?:industrial|placement)",
     ]),
     ("Insight/Spring Week", [
-        "spring week", "spring insight", "spring programme", "spring program",
-        "insight programme", "insight program", "insight day", "insight week",
-        "discovery day", "first year programme", "first-year programme",
-        "open day",
+        r"spring (?:week|insight|programme|program|series)",
+        r"insight (?:programme|program|day|week|series|event)",
+        r"discovery day", r"discovery programme",
+        r"first[\s-]year (?:programme|program|scheme)",
+        r"open day", r"early insight", r"spring intern(?:ship)?",
     ]),
     ("Internship", [
-        "internship", "intern", "summer analyst", "summer programme",
-        "summer program", "summer associate", "vacation scheme",
-        "industrial trainee",
+        r"internships?", r"interns?\b",
+        # The year routinely sits in the middle: "Summer 2027 Analyst".
+        r"summer\s+(?:\d{4}\s+)?(?:analyst|associate|intern(?:ship)?|programme|program|scheme)",
+        r"(?:\d{4}\s+)?summer analyst",
+        r"vacation scheme", r"penultimate[\s-]year programme",
     ]),
     ("Graduate Scheme", [
-        "graduate programme", "graduate program", "graduate scheme",
-        "graduate analyst", "graduate trainee", "new grad", "graduate role",
+        r"graduate (?:programmes?|programs?|schemes?|analysts?|trainees?|roles?)",
+        r"new grad", r"grad scheme",
     ]),
 ]
 
-# Whole-word matching, so "intern" cannot fire on "internal" or "international".
+# Still word-anchored at the start, so "intern" cannot fire inside "internal"
+# or "international", but the fragments supply their own trailing flexibility
+# (plurals, embedded years) instead of being pinned by a trailing \b.
 _KIND_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    (kind, re.compile("|".join(rf"\b{re.escape(p)}\b" for p in phrases), re.I))
+    (kind, re.compile("|".join(rf"\b(?:{p})" for p in phrases), re.I))
     for kind, phrases in KIND_RULES
 ]
 

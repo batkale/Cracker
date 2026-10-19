@@ -18,7 +18,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from . import gmail
-from .rules import (academic_admin, ats_tenant, classify, company_from_subject,
+from .rules import (academic_admin, address_tenant, ats_tenant, classify,
+                    company_from_subject,
                     detect_category, detect_kind, extract_role,
                     gmail_relevance_clause, is_academic, is_ats, is_noise,
                     is_relevant)
@@ -34,7 +35,11 @@ STATE_FILE = DATA / "state.json"
 LOOKBACK_DAYS = 120
 MAX_MESSAGES = 400
 EXTRA_QUERY = ""
-SNIPPET_CHARS = 200
+# Enough of the body to carry a stated deadline. At 200 nearly every message
+# was cut mid-first-paragraph, and "Submission Deadline is September 25th"
+# sits just past that in a typical assessment invite. The cost is roughly
+# 1 KB per event in events.json; the UI truncates what it shows.
+SNIPPET_CHARS = 1000
 
 # Messages examined per run. None means "scale with the window": a fixed cap
 # silently truncates the oldest mail as soon as you widen --days, which looks
@@ -60,7 +65,15 @@ class Event:
     fromAddress: str
     domain: str
     isATS: bool
-    companyHint: str   # employer label from a per-tenant ATS host, else ""
+    # Two company hints, kept apart because they are not equally trustworthy.
+    # tenantHint is lifted from the sender's own hostname (morganstanley.tal.net)
+    # and is as reliable as the domain itself. textHint is a guess at a company
+    # named in the prose, which is often the programme rather than the employer
+    # -- "your application to Global Quantitative Data Analytics" is Bank of
+    # America. Merging them let the weak one override a real sender domain.
+    tenantHint: str    # employer label from a per-tenant ATS host, else ""
+    textHint: str      # employer named in the subject or body, else ""
+    companyHint: str   # tenantHint or textHint; kept for older readers
     kindHint: str      # Internship / Hackathon / ... , or "" if unclear
     roleHint: str      # job title, when the mail states one plainly
     categoryHint: str  # sector, derived from roleHint only
@@ -148,6 +161,9 @@ def _classify_record(mid: str, rec: dict | None) -> Event | None:
             return None
 
     role = extract_role(rec["subject"], rec["text"])
+    tenant_hint = (ats_tenant(rec["domain"])
+                   or address_tenant(rec["fromAddress"], rec["domain"]))
+    text_hint = company_from_subject(rec["subject"], rec["text"])
 
     return Event(
         id=mid,
@@ -156,11 +172,12 @@ def _classify_record(mid: str, rec: dict | None) -> Event | None:
         fromAddress=rec["fromAddress"],
         domain=rec["domain"],
         isATS=is_ats(rec["domain"]),
-        companyHint=(ats_tenant(rec["domain"])
-                     # Pass the body too: assessment vendors name the
-                     # employer only in their opening line, and they are not
-                     # always on the ATS list, so do not gate on is_ats.
-                     or company_from_subject(rec["subject"], rec["text"])),
+        tenantHint=tenant_hint,
+        # Pass the body too: assessment vendors name the employer only in
+        # their opening line, and they are not always on the ATS list, so do
+        # not gate on is_ats.
+        textHint=text_hint,
+        companyHint=(tenant_hint or text_hint),
         kindHint=detect_kind(hay),
         roleHint=role,
         categoryHint=detect_category(role),
@@ -192,12 +209,13 @@ def run(days: int = LOOKBACK_DAYS,
         max_messages: int | None = None,
         extra_query: str = EXTRA_QUERY,
         verbose: bool = True,
-        prefilter: bool = True) -> list[Event]:
+        prefilter: bool = True,
+        allow_login: bool = False) -> list[Event]:
 
     if max_messages is None:
         max_messages = auto_max(days)
 
-    service = gmail.get_service()
+    service = gmail.get_service(allow_login=allow_login)
     me = gmail.my_address(service)
 
     query = build_query(days, extra_query, prefilter)

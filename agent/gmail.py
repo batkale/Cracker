@@ -20,6 +20,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import ssl
+
+import requests
+
+from google.auth.exceptions import RefreshError, TransportError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -69,6 +74,44 @@ def _retry_reason(err: HttpError) -> str:
         return ""
 
 
+# Connectivity to Google from this machine drops out for seconds at a time.
+# curl fails in the same windows, so it is the network rather than Python, and
+# nothing in the agent can prevent it - but a run should not die on one blip
+# when the next attempt usually succeeds.
+# requests raises its own ConnectionError/SSLError, which descend from OSError
+# but from neither the builtin ConnectionError nor ssl.SSLError - so leaving
+# them out silently excluded the OAuth token exchange, the exact step that
+# kept failing.
+_TRANSPORT_FAULTS = (
+    TransportError, ConnectionError, ssl.SSLError, TimeoutError,
+    requests.exceptions.ConnectionError, requests.exceptions.Timeout,
+)
+
+
+def _refresh_with_retry(creds, *, attempts: int = 5, quiet: bool = False) -> None:
+    """
+    Refresh the access token, riding out transient connection failures.
+
+    A reset here used to end the whole run before a single message was read.
+    RefreshError is deliberately not retried: a grant Google has revoked will
+    never come back, and the caller turns that into a sign-in prompt instead.
+    """
+    for attempt in range(attempts):
+        try:
+            creds.refresh(Request())
+            return
+        except RefreshError:
+            raise
+        except _TRANSPORT_FAULTS:
+            if attempt == attempts - 1:
+                raise
+            delay = min(30.0, 2.0 ** attempt) + random.uniform(0, 1)
+            if not quiet:
+                print(f"  connection dropped - retrying in {delay:.0f}s "
+                      f"(attempt {attempt + 2}/{attempts})", file=sys.stderr)
+            time.sleep(delay)
+
+
 def execute(request, *, attempts: int = _MAX_ATTEMPTS, quiet: bool = False):
     """
     Run an API request, backing off when Gmail says we are going too fast.
@@ -80,6 +123,17 @@ def execute(request, *, attempts: int = _MAX_ATTEMPTS, quiet: bool = False):
     for attempt in range(attempts):
         try:
             return request.execute()
+        except _TRANSPORT_FAULTS:
+            # Same flaky link as above: a dropped connection mid-fetch is not
+            # a Gmail error and carries no HTTP status, so it never reached
+            # the backoff below and killed the run outright.
+            if attempt == attempts - 1:
+                raise
+            delay = min(30.0, 2.0 ** attempt) + random.uniform(0, 1)
+            if not quiet:
+                print(f"  connection dropped - retrying in {delay:.0f}s "
+                      f"(attempt {attempt + 2}/{attempts})", file=sys.stderr)
+            time.sleep(delay)
         except HttpError as err:
             status = getattr(err.resp, "status", None)
             last = attempt == attempts - 1
@@ -103,8 +157,17 @@ def execute(request, *, attempts: int = _MAX_ATTEMPTS, quiet: bool = False):
 # --------------------------------------------------------------------------- #
 
 def get_service(credentials_file: Path = CREDENTIALS_FILE,
-                token_file: Path = TOKEN_FILE):
-    """Return an authorised Gmail API client, refreshing or prompting as needed."""
+                token_file: Path = TOKEN_FILE,
+                allow_login: bool = False):
+    """
+    Return an authorised Gmail API client.
+
+    Signing in is opt-in (allow_login), because this runs unattended every two
+    hours: a browser window appearing by itself, repeatedly, while you are in
+    the middle of something else is not acceptable behaviour from a background
+    job. Without the flag an expired grant is reported and the run stops,
+    leaving you to re-authorise when it suits you.
+    """
     creds: Credentials | None = None
 
     if token_file.exists():
@@ -112,8 +175,27 @@ def get_service(credentials_file: Path = CREDENTIALS_FILE,
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                _refresh_with_retry(creds)
+            except RefreshError:
+                # Google expires refresh tokens after 7 days while the OAuth
+                # app is in Testing mode. Re-raising here left the agent dead
+                # with no way forward: every scheduled run crashed, and the
+                # only cure was deleting token.json by hand - which the
+                # tracker's own banner did not say to do. A dead grant cannot
+                # be refreshed, so fall through and ask for consent instead.
+                # Deliberately narrow: TransportError (this machine's flaky
+                # TLS) must keep bubbling up, or a network blip would throw a
+                # browser window at you for no reason.
+                creds = None
+        if not creds or not creds.valid:
+            if not allow_login:
+                raise SystemExit(
+                    "Gmail sign-in has expired, so nothing new can be read.\n"
+                    "Re-authorise when convenient - this opens one browser "
+                    "tab, once:\n"
+                    r"    .venv\Scripts\python -m agent --login"
+                )
             if not credentials_file.exists():
                 raise SystemExit(
                     f"Missing {credentials_file.name}.\n"
@@ -123,7 +205,12 @@ def get_service(credentials_file: Path = CREDENTIALS_FILE,
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(credentials_file), SCOPES
             )
-            # port=0 lets the OS pick a free loopback port for the redirect.
+            # Exactly one attempt, deliberately. Retrying this re-runs the
+            # whole flow and opens another browser tab each time, which is
+            # intrusive and solves nothing the user can act on. If the link
+            # drops during the exchange, the error says so and the command can
+            # be run again when the connection is behaving.
+            # port=0 lets the OS pick a free loopback port.
             creds = flow.run_local_server(port=0)
         token_file.write_text(creds.to_json(), encoding="utf-8")
 

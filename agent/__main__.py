@@ -81,6 +81,10 @@ def main(argv: list[str] | None = None) -> int:
                    help=f"after syncing, serve the tracker on localhost:{PORT}")
     p.add_argument("--no-sync", action="store_true",
                    help="with --serve, open the tracker without reading Gmail")
+    p.add_argument("--login", action="store_true",
+                   help="allow the Google sign-in page to open if the saved "
+                        "sign-in has expired; without this an expired sign-in "
+                        "just reports and stops")
     p.add_argument("-q", "--quiet", action="store_true")
     args = p.parse_args(argv)
 
@@ -89,7 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         # dry run can never disturb what the tracker is reading.
         before = sync.EVENTS_FILE.read_bytes() if sync.EVENTS_FILE.exists() else None
         events = sync.run(args.days, args.max_messages, args.query,
-                          verbose=not args.quiet, prefilter=args.prefilter)
+                          verbose=not args.quiet, prefilter=args.prefilter,
+                 allow_login=args.login)
         if before is None:
             sync.EVENTS_FILE.unlink(missing_ok=True)
         else:
@@ -105,7 +110,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if not (args.serve and args.no_sync):
         sync.run(args.days, args.max_messages, args.query,
-                 verbose=not args.quiet, prefilter=args.prefilter)
+                 verbose=not args.quiet, prefilter=args.prefilter,
+                 allow_login=args.login)
 
     if args.serve:
         url = f"http://127.0.0.1:{PORT}/index.html"

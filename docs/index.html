@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cracker — internship application tracker</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 5rem;
+    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  .sub { color: #6b6b6b; margin-top: 0; }
+  h2 { font-size: 1.1rem; margin-top: 2.25rem; }
+  code { background: rgba(127,127,127,.15); padding: .1em .35em; border-radius: 4px; }
+  ul { padding-left: 1.2rem; }
+  footer { margin-top: 3rem; font-size: .9rem; color: #6b6b6b; }
+  a { color: #2f5fd8; }
+</style>
+</head>
+<body>
+
+<h1>Cracker</h1>
+<p class="sub">A personal tracker for internship and placement applications.</p>
+
+<p>
+  Cracker keeps one list of every application — company, role, stage, deadline —
+  instead of scattering them across notes and inboxes. It runs entirely on the
+  machine of the person using it.
+</p>
+
+<h2>What it does</h2>
+<ul>
+  <li>Tracks applications through a pipeline: Wishlist, Applied, OA/Assessment, Interview, Offer, Rejected/Withdrawn.</li>
+  <li>Reads the user's own Gmail, read-only, to spot status updates — an assessment invitation, a rejection — and suggests the matching change.</li>
+  <li>Flags deadlines that are close, and assessments that have gone quiet.</li>
+  <li>Shows the pipeline as a table, a board, and a few summary charts.</li>
+</ul>
+
+<h2>Where the data lives</h2>
+<p>
+  On the user's own computer, and nowhere else. There is no server, no account
+  and no third party. The Gmail connection is read-only and is used solely to
+  update that local list.
+</p>
+
+<h2>Scope of Gmail access</h2>
+<p>
+  Cracker requests one scope,
+  <code>https://www.googleapis.com/auth/gmail.readonly</code>.
+  That permits reading mail. It does not permit sending, deleting, or modifying
+  anything in the mailbox.
+</p>
+
+<footer>
+  <p>
+    <a href="privacy.html">Privacy policy</a> ·
+    <a href="https://github.com/batkale/Cracker">Source code</a>
+  </p>
+  <p>A personal project, used by its author.</p>
+</footer>
+
+</body>
+</html>

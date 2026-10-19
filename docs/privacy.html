@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy — Cracker</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 5rem;
+    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 1.6rem; }
+  .sub { color: #6b6b6b; margin-top: -.5rem; }
+  h2 { font-size: 1.05rem; margin-top: 2.25rem; }
+  code { background: rgba(127,127,127,.15); padding: .1em .35em; border-radius: 4px; }
+  ul { padding-left: 1.2rem; }
+  footer { margin-top: 3rem; font-size: .9rem; color: #6b6b6b; }
+  a { color: #2f5fd8; }
+</style>
+</head>
+<body>
+
+<h1>Privacy policy</h1>
+<p class="sub">Cracker — last updated 19 October 2026</p>
+
+<p>
+  Cracker is a personal application tracker that runs on the computer of the
+  person using it. It has no server, no user accounts, and no operator other
+  than that person.
+</p>
+
+<h2>What is accessed</h2>
+<p>
+  With the user's explicit consent, Cracker reads their own Gmail mailbox using
+  a single Google OAuth scope:
+</p>
+<p><code>https://www.googleapis.com/auth/gmail.readonly</code></p>
+<p>
+  This grants read access only. Cracker cannot send, delete, label or otherwise
+  modify any message, and it does not request permission to do so.
+</p>
+
+<h2>What is read, and why</h2>
+<p>
+  Cracker searches recent mail for messages that look like responses to job
+  applications. For those messages only, it keeps the sender, date, subject and
+  an extract of the body, so it can work out which application a message
+  concerns and what stage it has reached. Mail that does not match is not
+  retained.
+</p>
+
+<h2>Where it is stored</h2>
+<ul>
+  <li>In files inside the application's own folder on the user's computer.</li>
+  <li>In that computer's web browser local storage, for the tracker page.</li>
+</ul>
+<p>
+  Nothing is uploaded anywhere. There is no database, no cloud storage, no
+  analytics, no telemetry and no logging to any external service.
+</p>
+
+<h2>What is shared</h2>
+<p>
+  Nothing. No data is transmitted to the developer or to any third party. The
+  only network connection Cracker makes is directly to Google's Gmail API, to
+  read the user's own mail on their behalf.
+</p>
+
+<h2>Retention and deletion</h2>
+<p>
+  Data stays until the user deletes it. Removing the application's folder
+  removes everything it holds. Access can be withdrawn at any time from
+  <a href="https://myaccount.google.com/permissions">Google Account
+  permissions</a>, which immediately stops any further reading of mail.
+</p>
+
+<h2>Children</h2>
+<p>Cracker is not directed at children and is not intended for use by them.</p>
+
+<h2>Changes</h2>
+<p>
+  Any change to this policy will be published on this page with a revised date
+  above.
+</p>
+
+<h2>Contact</h2>
+<p>sbatuhankale@gmail.com</p>
+
+<footer>
+  <p>
+    <a href="index.html">Home</a> ·
+    <a href="https://github.com/batkale/Cracker">Source code</a>
+  </p>
+</footer>
+
+</body>
+</html>

@@ -82,6 +82,11 @@
   }
 }
 *{box-sizing:border-box}
+/* Component rules like .btn{display:inline-flex} are author styles and so
+   beat the user agent's [hidden]{display:none}. Without this, every hidden
+   button stays on screen - the Delete button showed on the New application
+   form, and Clear showed with no filters set. */
+[hidden]{display:none!important}
 html,body{margin:0;padding:0}
 body{
   background:var(--bg); color:var(--text);
@@ -329,6 +334,14 @@ svg.sankey text.small{fill:var(--muted);font-size:10px}
 .hint{font-size:12px;color:var(--muted)}
 kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:var(--fs-xs);background:var(--panel-2);color:var(--text)}
 
+.missed-head{font-size:12px;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--muted);margin:18px 0 8px;font-weight:600}
+.missed-head:first-of-type{margin-top:0}
+.sug.missed-said{border-left:3px solid var(--rust)}
+.sug.missed-passed{border-left:3px solid var(--amber)}
+.sug.missed-stale{border-left:3px solid var(--graphite)}
+.badge.warn{background:var(--amber);color:#1a1a1a}
+
 /* ---------- gmail sync ---------- */
 .sync-state{font-size:12px;color:var(--muted);white-space:nowrap}
 .sync-state.err{color:var(--danger)}
@@ -563,6 +576,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
     <button role="tab" data-view="board" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span class="tab-label" data-i18n="tabBoard">Board</span></button>
     <button role="tab" data-view="dash" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V10M10 19V5M16 19v-6M22 19H2"/></svg><span class="tab-label" data-i18n="tabDash">Dashboard</span></button>
     <button role="tab" data-view="inbox" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg><span class="tab-label" data-i18n="tabInbox">Inbox</span><span class="badge" id="inboxBadge" hidden>0</span></button>
+    <button role="tab" data-view="missed" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="tab-label" data-i18n="tabMissed">Missed</span><span class="badge warn" id="missedBadge" hidden>0</span></button>
   </nav>
 
   <div class="toolbar">
@@ -584,6 +598,7 @@ nav.tabs button[aria-selected="true"] .badge{background:var(--accent)}
   <section id="view-board" hidden></section>
   <section id="view-dash" hidden></section>
   <section id="view-inbox" hidden></section>
+  <section id="view-missed" hidden></section>
 </div>
 
 <!-- ---------- form modal ---------- -->
@@ -747,6 +762,17 @@ en:{
   sync:"Sync Gmail", settings:"Settings", exportCsv:"Export CSV", importCsv:"Import CSV",
   newApp:"New application",
   tabTable:"Table", tabBoard:"Board", tabDash:"Dashboard", tabInbox:"Inbox",
+  tabMissed:"Missed",
+  missedIntro:"Assessment windows that have gone by. Read from your mail, not from the deadline field \u2014 employers state these in the email and rarely anywhere else.",
+  missedSaid:"They said you missed it",
+  missedPassed:"Stated deadline has passed",
+  missedStale:"Gone quiet at assessment stage",
+  missedDue:d => `deadline was ${d}`,
+  missedSaidBy:d => `they wrote on ${d}`,
+  missedStaleFor:n => `no activity for ${n} days`,
+  missedNoApp:"no matching application",
+  missedEmptyTitle:"Nothing missed",
+  missedEmptyBody:"No assessment deadline has gone by unanswered.",
   searchPh:"Search company, role, notes…  (/)",
   allCategories:"All categories", allTypes:"All types", allStages:"All stages",
   anyDeadline:"Any deadline", dueSoonOpt:"Due in ≤5 days", overdueOpt:"Overdue",
@@ -861,6 +887,7 @@ en:{
   apply:"Apply", create:"Create",
 
   whyATS:x => `ATS tenant <code>${x}</code>`,
+  whyNamedHint:x => `employer named in the email <code>${x}</code>`,
   whyDomain:d => `sender domain <code>${d}</code>`,
   whySender:"sender name", whySubject:"company named in the subject",
   whyBody:"company named in the email body", whyRole:"role keyword",
@@ -883,6 +910,17 @@ tr:{
   sync:"Gmail'i eşitle", settings:"Ayarlar", exportCsv:"CSV dışa aktar",
   importCsv:"CSV içe aktar", newApp:"Yeni başvuru",
   tabTable:"Tablo", tabBoard:"Pano", tabDash:"Panel", tabInbox:"Gelen kutusu",
+  tabMissed:"Ka\u00e7\u0131r\u0131lan",
+  missedIntro:"Ge\u00e7mi\u015f de\u011ferlendirme s\u00fcreleri. Son tarih alan\u0131ndan de\u011fil e-postalar\u0131n\u0131zdan okunur \u2014 i\u015fverenler bunu genelde yaln\u0131zca e-postada yaz\u0131yor.",
+  missedSaid:"Ka\u00e7\u0131rd\u0131\u011f\u0131n\u0131z\u0131 bildirdiler",
+  missedPassed:"Belirtilen son tarih ge\u00e7ti",
+  missedStale:"De\u011ferlendirme a\u015famas\u0131nda sessiz",
+  missedDue:d => `son tarih: ${d}`,
+  missedSaidBy:d => `${d} tarihinde yazd\u0131lar`,
+  missedStaleFor:n => `${n} g\u00fcnd\u00fcr hareket yok`,
+  missedNoApp:"e\u015fle\u015fen ba\u015fvuru yok",
+  missedEmptyTitle:"Ka\u00e7\u0131r\u0131lan yok",
+  missedEmptyBody:"Yan\u0131ts\u0131z ge\u00e7mi\u015f bir de\u011ferlendirme s\u00fcresi yok.",
   searchPh:"Şirket, rol, not ara…  (/)",
   allCategories:"Tüm kategoriler", allTypes:"Tüm türler", allStages:"Tüm aşamalar",
   anyDeadline:"Tüm son tarihler", dueSoonOpt:"≤5 gün içinde", overdueOpt:"Gecikmiş",
@@ -996,6 +1034,7 @@ tr:{
   apply:"Uygula", create:"Oluştur",
 
   whyATS:x => `ATS kiracısı <code>${x}</code>`,
+  whyNamedHint:x => `e-postada adı geçen işveren <code>${x}</code>`,
   whyDomain:d => `gönderen alan adı <code>${d}</code>`,
   whySender:"gönderen adı", whySubject:"konuda geçen şirket adı",
   whyBody:"e-posta metninde geçen şirket adı", whyRole:"rol anahtar kelimesi",
@@ -1748,14 +1787,17 @@ function render(){
   $("#view-board").hidden = view !== "board";
   $("#view-dash").hidden  = view !== "dash";
   $("#view-inbox").hidden = view !== "inbox";
-  document.querySelector(".toolbar").hidden = view === "inbox";
+  $("#view-missed").hidden = view !== "missed";
+  document.querySelector(".toolbar").hidden = view === "inbox" || view === "missed";
 
   if(view === "table") renderTable(rows);
   else if(view === "board") renderBoard(rows);
   else if(view === "dash") renderDash(rows);
+  else if(view === "missed") renderMissed();
   else renderInbox();
 
   renderInboxBadge();
+  renderMissedBadge();
 }
 
 /* ======================= form ======================= */
@@ -1823,6 +1865,7 @@ $("#deleteBtn").onclick = () => {
   const a = byId(editingId);
   if(!a) return;
   if(!confirm(t("confirmDelete", a.company + (a.role ? " — " + a.role : "")))) return;
+  deletedIds.add(editingId);
   apps = apps.filter(x => x.id !== editingId);
   save(); closeForm(); render();
 };
@@ -2166,13 +2209,20 @@ function matchApp(ev){
     // already treats this as the strongest signal; the matcher has to agree,
     // or an ATS mail whose subject omits the company offers to create a
     // duplicate of an application that already exists.
-    if(ev.companyHint){
-      const hint = compact(ev.companyHint);
-      if(hint && (hint === cc ||
-          (hint.length >= 4 && cc.length >= 4 &&
-           (hint.includes(cc) || cc.includes(hint))))){
-        score += 4; why.push(t("whyATS", esc(ev.companyHint)));
-      }
+    // A tenant label is as good as the domain; a text hint is a guess, and
+    // scoring them alike let "Global Quantitative Data Analytics" outrank the
+    // sender's own bofa.com.
+    const tHint = tenantHint(ev), xHint = textHint(ev);
+    const hintMatches = h => {
+      const hint = compact(h);
+      return hint && (hint === cc ||
+        (hint.length >= 4 && cc.length >= 4 &&
+         (hint.includes(cc) || cc.includes(hint))));
+    };
+    if(tHint && hintMatches(tHint)){
+      score += 4; why.push(t("whyATS", esc(tHint)));
+    } else if(xHint && hintMatches(xHint)){
+      score += 2; why.push(t("whyNamedHint", esc(xHint)));
     }
 
     if(!ev.isATS && ev.domain){
@@ -2277,7 +2327,7 @@ function companyFromSiblingRole(ev){
   if(mine.length < 2) return "";
 
   for(const e of events){
-    if(!e || e === ev || !e.companyHint || !e.roleHint) continue;
+    if(!e || e === ev || !anyHint(e) || !e.roleHint) continue;
     const theirs = roleWords(e.roleHint);
     const shared = mine.filter(w => theirs.includes(w)).length;
     if(!shared) continue;
@@ -2287,18 +2337,104 @@ function companyFromSiblingRole(ev){
     // fortnight, which the vendor mail for one application always is and two
     // unrelated applications rarely are.
     const apart = Math.abs(new Date(e.date) - new Date(ev.date)) / 864e5;
-    if(shared >= 3 || (shared >= 2 && apart <= 14)) return e.companyHint;
+    if(shared >= 3 || (shared >= 2 && apart <= 14)) return anyHint(e);
   }
   return "";
 }
 
+/* ---------- company name sanitising ----------
+   Every path below can still hand back something that is not an employer: a
+   display name that is really an address ("Shell@myworkday.com"), a mangled
+   domain ("@mercedes Amg Hpp.com"), or the mail robot itself
+   ("WorkdaySystemDoNotReply"). Rather than teach each branch the same lesson,
+   the result passes through one filter on the way out. Returning "" is
+   deliberate and safe: autoApply declines a blank name and leaves the mail in
+   the Inbox to be named by hand, instead of inventing a junk row.            */
+
+// Split in two because matching strength has to differ. Distinctive vendor
+// names are safe to match as a prefix, since display names run them together
+// into one token ("Hackerrankforwork"). Short or ambiguous ones must match
+// exactly, or "lever" would reject Leverhulme and "tal" would reject almost
+// anything.
+const VENDOR_PREFIX = new RegExp("^(" + [
+  "workday","myworkday","greenhouse","smartrecruiters","successfactors",
+  "hackerrank","codility","hirevue","codesignal","brassring","teamtailor",
+  "eightfold","modernhire","tribepad","panpowered","jobvite","avature",
+  "icims","taleo","vssend","donotreply","donotrespond","noreply","mailer",
+  "postmaster","surveymonkey","docusign","qualtrics"
+].join("|") + ")", "i");
+
+const VENDOR_EXACT = new RegExp("^(" + [
+  "lever","ashby","oracle","csod","oleeo","workable","tal"
+].join("|") + ")$", "i");
+
+const TRADEMARK = /[\u00ae\u2122\u00a9]/g;
+// A hostname tail left over after an address is split: ".com", ".co.uk".
+const HOST_TAIL = /\s*\.[a-z]{2,}(?:\.[a-z]{2,})?\s*$/i;
+
+// Generic mailboxes. When the local part is one of these the address says
+// nothing, and the domain is the half that names the employer:
+// careers@mercedes-amg-hpp.com is Mercedes, not "Careers".
+const MAILBOX_WORD = new RegExp("^(" + [
+  "careers?","jobs?","hr","recruit(ing|ment)?","talent","apply","applications?",
+  "info","admin","noreply","donotreply","contact","hello","team","people",
+  "graduate","graduates","campus","earlycareers","students?","enquiries"
+].join("|") + ")$", "i");
+
+function cleanCompany(raw){
+  let s = String(raw || "").trim();
+  if(!s) return "";
+
+  // "Fortescue Recruitment Team <No Reply>" - the bracketed part is routing
+  // detail, never the employer.
+  s = s.replace(/<[^>]*>?/g, " ").trim();
+  s = s.replace(/^[@\s]+/, "");
+
+  const at = s.indexOf("@");
+  if(at > -1){
+    const local = s.slice(0, at).trim();
+    const host  = s.slice(at + 1).trim();
+    const generic = MAILBOX_WORD.test(local.replace(/[^A-Za-z]/g, ""));
+    s = generic ? String(domainRoot(host) || "").replace(/[-_.]+/g, " ") : local;
+  }
+  s = s.replace(HOST_TAIL, "");
+
+  s = s.replace(TRADEMARK, " ")
+       .replace(/[_|\u00b7\u2013\u2014]+/g, " ")
+       .replace(/\s{2,}/g, " ")
+       .trim();
+  // Strip stray punctuation at the edges, keeping &, ' and - inside a name.
+  s = s.replace(/^[^\w&]+/, "").replace(/[^\w&)'\u2019.]+$/, "").trim();
+
+  const bare = s.replace(/[^A-Za-z]/g, "");
+  if(VENDOR_PREFIX.test(bare) || VENDOR_EXACT.test(bare)) return "";
+  if(bare.length < 2) return "";   // too little left to be a name
+  return s;
+}
+
 function guessCompany(ev){
+  return cleanCompany(guessCompanyRaw(ev));
+}
+
+function guessCompanyRaw(ev){
   // A per-tenant ATS host names the employer in its own subdomain
   // (morganstanley.tal.net); the agent passes that through. Strongest signal
   // available, so it wins outright.
-  if(ev.companyHint){
-    return titleCase(spacedFrom(ev.companyHint, ev.subject, ev.snippet)
-                     || ev.companyHint);
+  const tHint = tenantHint(ev);
+  if(tHint){
+    return titleCase(spacedFrom(tHint, ev.subject, ev.snippet) || tHint);
+  }
+
+  // A hint read out of the prose is much weaker than the sender's own domain:
+  // "your application to Global Quantitative Data Analytics" arrives from
+  // campuscareers.bofa.com and names the programme, not Bank of America. So it
+  // only speaks when the domain cannot -- when the mail came through a vendor.
+  const xHint = textHint(ev);
+  const senderRoot = domainRoot(ev.domain);
+  const senderIsEmployer = !ev.isATS && senderRoot.length >= 3
+                           && !VENDOR_NAME.test(senderRoot);
+  if(xHint && !senderIsEmployer){
+    return titleCase(spacedFrom(xHint, ev.subject, ev.snippet) || xHint);
   }
 
   const raw = String(ev.fromName || "").trim();
@@ -2342,6 +2478,19 @@ function guessCompany(ev){
   return titleCase(spacedFrom(root, ev.subject, ev.snippet) || root);
 }
 
+/* The agent supplies two company hints of different quality. Older
+   events.json files predate the split and carry only companyHint; that value
+   was whichever of the two was available, so treating it as the weak kind is
+   safe -- a tenant hint only ever exists when the sender is a vendor host,
+   and the weak path uses the hint in exactly that case anyway. */
+function tenantHint(ev){ return (ev && ev.tenantHint) || ""; }
+function textHint(ev){
+  if(!ev) return "";
+  const split = ("tenantHint" in ev) || ("textHint" in ev);
+  return split ? (ev.textHint || "") : (ev.companyHint || "");
+}
+function anyHint(ev){ return tenantHint(ev) || textHint(ev); }
+
 /* ---------- suggestions ---------- */
 function suggestions(){
   const out = [];
@@ -2356,8 +2505,16 @@ function suggestions(){
       const terminal = ev.stage === "Rejected/Withdrawn";
       if(next < cur && !terminal) continue;                        // never suggest going backwards
       out.push({ type:"stage", ev, app:m.app, why:m.why, score:m.score });
-    } else if(ev.confidence === "high"){
-      out.push({ type:"new", ev, guess: guessCompany(ev) });
+    } else {
+      // Unmatched mail used to be offered only when a strong phrase matched,
+      // so a real application whose wording only tripped a weak rule -- "thank
+      // you for your interest in a new opportunity with Boeing" -- vanished
+      // entirely: never applied, and never shown either. Surfacing the weak
+      // ones costs some noise to triage and stops applications going missing.
+      // autoApply still takes high confidence only, so nothing reaches the
+      // table without you agreeing to it.
+      const guess = guessCompany(ev);
+      if(guess) out.push({ type:"new", ev, guess });
     }
   }
   out.sort((a,b) =>
@@ -2614,13 +2771,25 @@ function cacheLocally(){
   }catch(e){ /* private mode: disk still holds it */ }
 }
 
+/* Rows deleted in this session.
+   A save that loses the revision race is answered with the newer copy from
+   disk, which is then adopted wholesale - and that silently undid deletes: the
+   row you had just removed came straight back and the button looked broken.
+   Remembering what was deleted lets the adopted copy be corrected and the
+   deletion pushed forward, instead of the intent being dropped. */
+const deletedIds = new Set();
+
 function adoptStore(store){
   apps = (store.apps || []).map(normalize);
   seen = store.seen || {};
+  const before = apps.length;
+  if(deletedIds.size) apps = apps.filter(a => !deletedIds.has(a.id));
   disk.revision = store.revision || 0;
   disk.savedAt = store.savedAt || disk.savedAt;
   rememberRevision(disk.revision);
   cacheLocally();
+  // Re-apply the deletion against the revision we just adopted.
+  if(apps.length !== before) scheduleDiskSave();
 }
 
 async function diskLoad(){
@@ -2917,7 +3086,7 @@ function sugHTML(s){
           <span class="pill ${STAGE_CLASS[ev.stage]}">${esc(tStage(ev.stage))}</span>
           ${conf}
         </div>
-        ${ev.snippet ? `<p class="snip">${esc(ev.snippet)}…</p>` : ""}
+        ${ev.snippet ? `<p class="snip">${esc(ev.snippet.slice(0, 240))}…</p>` : ""}
         <div class="why">${t("matchedBy", s.why.join(", "))}${
           ev.matchedOn ? t("phraseWas", esc(ev.matchedOn)) : ""}</div>
       </div>
@@ -2937,13 +3106,152 @@ function sugHTML(s){
         <span class="pill ${STAGE_CLASS[ev.stage]}">${esc(tStage(ev.stage))}</span>
         ${conf}
       </div>
-      ${ev.snippet ? `<p class="snip">${esc(ev.snippet)}…</p>` : ""}
+      ${ev.snippet ? `<p class="snip">${esc(ev.snippet.slice(0, 240))}…</p>` : ""}
     </div>
     <div class="acts">
       <button class="btn sm primary" data-create="${esc(ev.id)}">${esc(t("create"))}</button>
       <button class="btn sm" data-dismiss="${esc(ev.id)}">${esc(t("dismiss"))}</button>
     </div>
   </div>`;
+}
+
+/* =====================================================================
+   Missed
+   An assessment you never sat is the most expensive thing this tracker can
+   lose, and it is invisible in the table: the row just sits at OA/Assessment
+   looking like any other. Nothing here is inferred from the deadline field,
+   because nothing ever populates it -- the dates live in the mail, so this
+   reads the mail.
+   ===================================================================== */
+
+// Employers say it outright, and that is worth separating from a guess.
+const MISSED_PHRASE = new RegExp([
+  "missed the deadline", "deadline missed", "deadline has passed",
+  "deadline to complete", "did not complete", "have not completed",
+  "no longer able to complete", "assessment has expired", "has now expired",
+  "window has closed", "submission.{0,12}closed"
+].join("|"), "i");
+
+const MONTHS = ["january","february","march","april","may","june","july",
+                "august","september","october","november","december"];
+
+/** A deadline date stated in the text, as an ISO date, or "". */
+function statedDeadline(text, sentOn){
+  const s = String(text || "");
+
+  // "Deadline is September 25th 2026" / "by 30 September"
+  const named = s.match(new RegExp(
+    "(?:deadline|close[sd]?|closing|submit|complete)[^.]{0,30}?\\b" +
+    "(?:(\\d{1,2})\\s+)?(" + MONTHS.join("|") + ")\\w*\\s*(\\d{1,2})?(?:st|nd|rd|th)?[,\\s]*(\\d{4})?", "i"));
+  if(named){
+    const month = MONTHS.indexOf(named[2].toLowerCase());
+    const day = Number(named[1] || named[3]);
+    const year = Number(named[4]) || Number((sentOn || "").slice(0, 4));
+    if(month >= 0 && day >= 1 && day <= 31 && year > 2000){
+      return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+
+  // "within the next 5 days", counted from the day the mail was sent.
+  const words = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,ten:10,fourteen:14};
+  const rel = s.match(/within\s+(?:the\s+)?(?:next\s+)?(\d{1,2}|one|two|three|four|five|six|seven|ten|fourteen)\s+(?:working\s+|business\s+)?days?/i);
+  if(rel && sentOn){
+    const n = Number(rel[1]) || words[rel[1].toLowerCase()];
+    const p = sentOn.split("-").map(Number);
+    if(n && p.length === 3){
+      const d = new Date(p[0], p[1] - 1, p[2] + n);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+  }
+  return "";
+}
+
+/** Applications whose assessment window has gone by, worst first. */
+function missedItems(){
+  const out = [];
+  const claimed = new Set();
+
+  // 1 & 2: what the mail says. Newest first so the latest word wins.
+  const mail = events.slice().sort((a,b) => cmpDate(b.date, a.date));
+  for(const ev of mail){
+    if(ev.stage !== "OA/Assessment") continue;
+    const text = `${ev.subject} ${ev.snippet || ""}`;
+    const said = MISSED_PHRASE.test(text);
+    const due = statedDeadline(text, ev.date);
+    const overdue = due && daysUntil(due) < 0;
+    if(!said && !overdue) continue;
+
+    const m = matchApp(ev);
+    const app = m ? m.app : null;
+    if(app && claimed.has(app.id)) continue;
+    // Anything past the assessment stage answered the question by moving on:
+    // Aston Martin's window closed on the 25th, but the row reached Interview,
+    // so the deadline is history rather than a miss.
+    if(app && STAGES.indexOf(app.stage) > STAGES.indexOf("OA/Assessment")) continue;
+    if(app) claimed.add(app.id);
+
+    out.push({ kind: said ? "said" : "passed", ev, app, due,
+               company: app ? app.company : guessCompany(ev) });
+  }
+
+  // 3: no stated date, but sitting at OA/Assessment in silence.
+  for(const a of apps){
+    if(a.stage !== "OA/Assessment" || claimed.has(a.id)) continue;
+    const quiet = daysQuiet(a);
+    if(quiet === null || quiet < QUIET_DAYS) continue;
+    claimed.add(a.id);
+    out.push({ kind: "stale", ev: null, app: a, due: "", company: a.company, quiet });
+  }
+
+  const rank = { said: 0, passed: 1, stale: 2 };
+  out.sort((x, y) => rank[x.kind] - rank[y.kind] ||
+                     cmpDate(x.due || (x.ev && x.ev.date) || "", y.due || (y.ev && y.ev.date) || ""));
+  return out;
+}
+
+function renderMissedBadge(){
+  const n = missedItems().length;
+  const b = $("#missedBadge");
+  if(!b) return;
+  b.hidden = n === 0;
+  b.textContent = n;
+}
+
+function renderMissed(){
+  const el = $("#view-missed");
+  const items = missedItems();
+  if(!items.length){
+    el.innerHTML = `<div class="card"><div class="empty">
+      <h3>${esc(t("missedEmptyTitle"))}</h3><p>${esc(t("missedEmptyBody"))}</p>
+    </div></div>`;
+    return;
+  }
+
+  const head = { said: t("missedSaid"), passed: t("missedPassed"), stale: t("missedStale") };
+  let html = `<p class="hint" style="margin:0 0 14px">${esc(t("missedIntro"))}</p>`;
+  let current = "";
+  for(const it of items){
+    if(it.kind !== current){
+      current = it.kind;
+      html += `<h2 class="missed-head">${esc(head[current])}</h2>`;
+    }
+    const detail = it.kind === "stale"
+      ? esc(t("missedStaleFor", it.quiet))
+      : (it.due ? esc(t("missedDue", fmtDate(it.due))) : esc(t("missedSaidBy", fmtDate(it.ev.date))));
+    html += `<div class="sug missed-${it.kind}">
+      <div class="main">
+        <div class="subj">${esc(it.company)}${
+          it.app && it.app.role ? ` <span style="color:var(--muted);font-weight:400">${esc(it.app.role)}</span>` : ""}</div>
+        <div class="meta">${detail}${
+          it.app ? ` · <span class="pill ${STAGE_CLASS[it.app.stage]}">${esc(tStage(it.app.stage))}</span>`
+                 : ` · ${esc(t("missedNoApp"))}`}</div>
+        ${it.ev ? `<p class="snip">${esc((it.ev.snippet || it.ev.subject).slice(0, 160))}…</p>` : ""}
+      </div>
+      <div class="acts">${
+        it.app ? `<button class="btn sm" data-edit="${esc(it.app.id)}">${esc(t("edit"))}</button>` : ""}</div>
+    </div>`;
+  }
+  el.innerHTML = html;
 }
 
 /* ---------- settings modal ---------- */
